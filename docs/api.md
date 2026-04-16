@@ -40,22 +40,57 @@ Retrieves the real-time state of the graph for the requested week. Used to check
 
 ### Submit Feedback
 `POST /pipeline/{week_id}/feedback`
-Resumes a blocked pipeline graph by supplying human feedback, deep research data, or approval.
+Resumes a blocked pipeline graph by supplying one of the strict HITL actions.
 
 **Request Body:**
 ```json
 {
-  "action": "edit",           // "edit", "approve", "supply_research"
+  "action": "select_topics",  // "approve", "approve_plan", "approve_content", "edit", "select_topics", "supply_raw_research", "supply_deep_research"
+  "selected_topics": ["topic_a", "topic_b"],
+  "topic_id": "topic_a",
+  "deep_research_text": "External deep research result for topic_a",
   "feedback": "Make it shorter.",
-  "deep_research_data": null
+  "raw_research_data": "...",
+  "deep_research_data": {
+    "topic_a": "..."
+  }
 }
 ```
+
+**Validation Rules:**
+- `select_topics` requires non-empty `selected_topics` and every topic must exist in `weekly_plan`.
+- `supply_raw_research` requires `raw_research_data`.
+- `supply_deep_research` requires a topic-scoped payload (`topic_id` + `deep_research_text`, or `deep_research_data[topic_id]`) and must match `pending_topic_id` when present.
+- `edit` requires non-empty `feedback`.
 
 **Response:** `200 OK` (Updated state showing the graph progressing)
 
 ---
 
-## 2. Memory & Artifacts (`/memory`)
+## 2. Carousel Preview (`/carousel`)
+
+### Render Carousel Preview
+`POST /carousel/render/{week_id}/{topic_id}`
+Renders generated carousel TSX code into slide PNG previews using the Node renderer service.
+
+**Response:** `200 OK`
+```json
+{
+  "week_id": "2026-W16",
+  "topic_id": "topic_a",
+  "count": 3,
+  "images": [
+    {
+      "filename": "slide_01.png",
+      "data_url": "data:image/png;base64,..."
+    }
+  ]
+}
+```
+
+---
+
+## 3. Memory & Artifacts (`/memory`)
 
 ### Get Brand Context
 `GET /memory/brand/context`
@@ -87,7 +122,7 @@ Returns the raw content of a stored markdown or JSON artifact from the file syst
 
 ---
 
-## 3. Real-Time Events (`/events`)
+## 4. Real-Time Events (`/events`)
 
 ### Log Streaming
 `WS /events/ws`

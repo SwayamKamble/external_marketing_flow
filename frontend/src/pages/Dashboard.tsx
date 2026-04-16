@@ -32,6 +32,13 @@ export default function Dashboard() {
 
   const actionType = pipelineState?.human_action_type;
   const isResearchInputAction = ["paste_research", "paste_deep_research"].includes(actionType) || (!actionType && pipelineState?.status === "research");
+  const actionHints: Record<string, string> = {
+    select_topics: "Select topics in Weekly Calendar, then continue.",
+    paste_research: "Paste weekly research results in this panel.",
+    paste_deep_research: "Paste deep research for the current pending topic in this panel.",
+    review_content: "Review content in Content Review and approve or edit.",
+  };
+  const nextActionHint = actionType ? actionHints[actionType] : "";
 
   const handleStart = async () => {
     setIsRunning(true);
@@ -102,6 +109,11 @@ export default function Dashboard() {
                   <span className="text-emerald-600 font-bold text-sm flex gap-1 items-center"><CheckCircle size={14}/> CLEAR</span>
                 )}
               </div>
+              {pipelineState.human_action_required && nextActionHint && (
+                <div className="text-xs text-blue-700 bg-blue-50 border border-blue-200 rounded p-2">
+                  Next Step: {nextActionHint}
+                </div>
+              )}
             </div>
           ) : (
             <div className="text-slate-400 text-sm py-4 text-center">No active state for {weekId}</div>
