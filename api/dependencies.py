@@ -28,7 +28,7 @@ async def init_system():
     
     _logger = PipelineLogger(
         log_dir="data/logs",
-        level=os.getenv("LOG_LEVEL", "DEBUG"),
+        log_level=os.getenv("LOG_LEVEL", "DEBUG"),
     )
     
     _db = DatabaseManager(db_path=os.getenv("PIPELINE_DB_PATH", "data/pipeline.db"))

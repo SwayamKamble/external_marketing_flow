@@ -1,5 +1,9 @@
 """Main FastAPI application entry point."""
 
+import sys
+import os
+sys.path.append(os.path.abspath("src"))
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
