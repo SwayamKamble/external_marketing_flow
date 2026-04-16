@@ -201,6 +201,7 @@ class BaseNode(ABC):
         filename: str,
         content: str,
         metadata: dict[str, Any] | None = None,
+        topic_id: str | None = None,
     ) -> None:
         """Save an artifact to file memory.
 
@@ -210,6 +211,7 @@ class BaseNode(ABC):
             filename: File name for the artifact.
             content: Markdown content to save.
             metadata: Optional additional metadata.
+            topic_id: Optional topic ID if it overrides the context topic ID.
         """
         if not context.memory:
             return
@@ -224,7 +226,7 @@ class BaseNode(ABC):
             filename=filename,
             content=content,
             metadata=meta,
-            topic_id=context.topic_id or None,
+            topic_id=topic_id or context.topic_id or None,
         )
 
     def read_artifact(
@@ -232,6 +234,7 @@ class BaseNode(ABC):
         context: NodeContext,
         phase: str,
         filename: str,
+        topic_id: str | None = None,
     ) -> dict[str, Any]:
         """Read an artifact from file memory.
 
@@ -250,5 +253,5 @@ class BaseNode(ABC):
             week_id=context.week_id,
             phase=phase,
             filename=filename,
-            topic_id=context.topic_id or None,
+            topic_id=topic_id or context.topic_id or None,
         )
