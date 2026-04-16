@@ -8,6 +8,12 @@ from typing import Any
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
+def _topic_get(topic: Any, key: str, default: Any = None) -> Any:
+    if isinstance(topic, dict):
+        return topic.get(key, default)
+    return getattr(topic, key, default)
+
+
 class DeepResearchPromptGenerator(BaseNode):
     """Generates specific deep-dive prompts for selected topics.
 
@@ -37,7 +43,7 @@ class DeepResearchPromptGenerator(BaseNode):
             return {"pipeline_status": "deep_research"}
 
         # Filter the bank to only the selected topics
-        selected_topics = [t for t in topic_bank if t.id in selected_topics_ids]
+        selected_topics = [t for t in topic_bank if _topic_get(t, "id") in selected_topics_ids]
 
         if not selected_topics:
             if context.logger:
@@ -60,7 +66,7 @@ class DeepResearchPromptGenerator(BaseNode):
         if pending_topic_id not in queue:
             pending_topic_id = queue[0]
 
-        selected_topic = next((t for t in selected_topics if t.id == pending_topic_id), None)
+        selected_topic = next((t for t in selected_topics if _topic_get(t, "id") == pending_topic_id), None)
         if not selected_topic:
             return {
                 "pipeline_status": "deep_research",
@@ -72,11 +78,11 @@ class DeepResearchPromptGenerator(BaseNode):
 
         payload = [
             {
-                "id": selected_topic.id,
-                "title": selected_topic.title,
-                "summary": selected_topic.summary,
-                "key_points": selected_topic.key_points,
-                "suggested_angle": selected_topic.suggested_angle,
+                "id": _topic_get(selected_topic, "id", ""),
+                "title": _topic_get(selected_topic, "title", ""),
+                "summary": _topic_get(selected_topic, "summary", ""),
+                "key_points": _topic_get(selected_topic, "key_points", []),
+                "suggested_angle": _topic_get(selected_topic, "suggested_angle", ""),
             }
         ]
 
@@ -106,7 +112,7 @@ class DeepResearchPromptGenerator(BaseNode):
 
         for item in prompts_data:
             tid = item.get("topic_id")
-            title = next((t.title for t in selected_topics if t.id == tid), "Unknown")
+            title = next((_topic_get(t, "title", "Unknown") for t in selected_topics if _topic_get(t, "id") == tid), "Unknown")
             content += f"## Topic: {title}\n"
             content += f"**ID:** `{tid}`\n\n"
             content += f"```text\n{item.get('prompt')}\n```\n\n"

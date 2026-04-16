@@ -10,6 +10,12 @@ from contentforge.core.state import Caption, Platform, ContentStatus
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
+def _topic_get(topic: Any, key: str, default: Any = None) -> Any:
+    if isinstance(topic, dict):
+        return topic.get(key, default)
+    return getattr(topic, key, default)
+
+
 class CaptionWriter(BaseNode):
     """Generates captions across all platforms in parallel.
 
@@ -75,14 +81,14 @@ class CaptionWriter(BaseNode):
         
         # Build strict context string for the prompts
         topic_bank = input_data.get("topic_bank", [])
-        topic = next((t for t in topic_bank if t.id == topic_id), None)
+        topic = next((t for t in topic_bank if _topic_get(t, "id") == topic_id), None)
         
         deep_res = input_data.get("deep_research", {}).get(topic_id)
         
-        ctx_lines = [f"Title: {topic.title}" if topic else "Title: Unknown"]
+        ctx_lines = [f"Title: {_topic_get(topic, 'title', 'Unknown')}" if topic else "Title: Unknown"]
         if topic:
             ctx_lines.append(f"Format: {tc.content_format.value}")
-            ctx_lines.append(f"Angle: {topic.suggested_angle}")
+            ctx_lines.append(f"Angle: {_topic_get(topic, 'suggested_angle', '')}")
         if deep_res:
             ctx_lines.append(f"Facts/Details:\n{deep_res.result}")
             

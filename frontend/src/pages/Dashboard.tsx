@@ -33,6 +33,8 @@ export default function Dashboard() {
   const actionType = pipelineState?.human_action_type;
   const isResearchStage = ["research", "deep_research"].includes(pipelineState?.status);
   const isResearchInputAction = ["paste_research", "paste_deep_research"].includes(actionType) || isResearchStage;
+  const selectedTopics = pipelineState?.state?.selected_topics || [];
+  const topicQueue = pipelineState?.state?.topic_queue || [];
   const actionHints: Record<string, string> = {
     select_topics: "Select topics in Weekly Calendar, then continue.",
     paste_research: "Paste weekly research results in this panel.",
@@ -173,6 +175,34 @@ export default function Dashboard() {
              )}
           </div>
             </div>
+
+            {pipelineState?.state && (
+              <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg text-slate-800">Topic Queue</h3>
+                  <span className="text-xs text-slate-500 font-mono">{selectedTopics.length} selected</span>
+                </div>
+                {selectedTopics.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedTopics.map((topicId: string, index: number) => (
+                      <span
+                        key={topicId}
+                        className={`px-3 py-1 rounded-full text-xs font-mono border ${pipelineState.pending_topic_id === topicId ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}
+                      >
+                        {index + 1}. {topicId}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-sm text-slate-500">No topics selected yet.</div>
+                )}
+                {topicQueue.length > 0 && (
+                  <div className="text-xs text-slate-500">
+                    Queue order: {topicQueue.join(" → ")}
+                  </div>
+                )}
+              </div>
+            )}
 
             {isResearchInputAction && (
               <HumanInputPanel weekId={weekId} pipelineState={pipelineState} onSubmitted={() => getPipelineStatus(weekId).then(setPipelineState)} />

@@ -9,6 +9,12 @@ from contentforge.core.state import Theme
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
+def _topic_get(topic: Any, key: str, default: Any = None) -> Any:
+    if isinstance(topic, dict):
+        return topic.get(key, default)
+    return getattr(topic, key, default)
+
+
 class ThemeDesigner(BaseNode):
     """Selects colors, fonts, and visual themes for a topic.
 
@@ -36,7 +42,7 @@ class ThemeDesigner(BaseNode):
 
         # Look up the topic info for context
         topic_bank = input_data.get("topic_bank", [])
-        topic = next((t for t in topic_bank if t.id == topic_id), None)
+        topic = next((t for t in topic_bank if _topic_get(t, "id") == topic_id), None)
         
         if not topic:
             return {}
@@ -47,7 +53,7 @@ class ThemeDesigner(BaseNode):
         result = await self.call_llm(
             context=context,
             system_prompt=system_prompt,
-            user_message=f"Design a theme for this topic: '{topic.title}'\nType: {tc.content_format.value}\nAngle: {topic.suggested_angle}",
+            user_message=f"Design a theme for this topic: '{_topic_get(topic, 'title', '')}'\nType: {tc.content_format.value}\nAngle: {_topic_get(topic, 'suggested_angle', '')}",
             response_format={"type": "json_object"},
             model=config.get("model", "gpt-5-chat"),
             temperature=config.get("temperature", 0.6), # Creative

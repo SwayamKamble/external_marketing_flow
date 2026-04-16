@@ -8,6 +8,12 @@ from typing import Any
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
+def _topic_get(topic: Any, key: str, default: Any = None) -> Any:
+    if isinstance(topic, dict):
+        return topic.get(key, default)
+    return getattr(topic, key, default)
+
+
 class ImagePromptEngineer(BaseNode):
     """Generates precise image prompts (e.g., Midjourney).
 
@@ -35,7 +41,7 @@ class ImagePromptEngineer(BaseNode):
              return {}
 
         topic_bank = input_data.get("topic_bank", [])
-        topic = next((t for t in topic_bank if t.id == topic_id), None)
+        topic = next((t for t in topic_bank if _topic_get(t, "id") == topic_id), None)
         if not topic:
              return {}
 
@@ -46,7 +52,7 @@ class ImagePromptEngineer(BaseNode):
         result = await self.call_llm(
             context=context,
             system_prompt=system_prompt,
-            user_message=f"Write prompts for: {topic.title}\nMood/Aesthetic: {theme_mood}",
+            user_message=f"Write prompts for: {_topic_get(topic, 'title', '')}\nMood/Aesthetic: {theme_mood}",
             response_format={"type": "json_object"},
             model=config.get("model", "gpt-5-chat"),
             temperature=config.get("temperature", 0.7),

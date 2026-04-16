@@ -9,6 +9,12 @@ from contentforge.core.state import CarouselSlide
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
+def _topic_get(topic: Any, key: str, default: Any = None) -> Any:
+    if isinstance(topic, dict):
+        return topic.get(key, default)
+    return getattr(topic, key, default)
+
+
 class SlideContentWriter(BaseNode):
     """Generates the text content for each carousel slide.
     
@@ -29,12 +35,12 @@ class SlideContentWriter(BaseNode):
             return {}
 
         topic_bank = input_data.get("topic_bank", [])
-        topic = next((t for t in topic_bank if t.id == topic_id), None)
+        topic = next((t for t in topic_bank if _topic_get(t, "id") == topic_id), None)
         deep_res = input_data.get("deep_research", {}).get(topic_id)
 
         system_prompt, config = self.load_prompt(context)
         
-        ctx = f"Title: {topic.title if topic else ''}\nAngle: {topic.suggested_angle if topic else ''}\n"
+        ctx = f"Title: {_topic_get(topic, 'title', '') if topic else ''}\nAngle: {_topic_get(topic, 'suggested_angle', '') if topic else ''}\n"
         if deep_res:
             ctx += f"\nFacts:\n{deep_res.result}"
 
