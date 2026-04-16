@@ -1,18 +1,31 @@
-"""ContentForge API — FastAPI backend (stub).
+"""Main FastAPI application entry point."""
 
-Full implementation in Phase 3. This stub ensures the server can start.
-"""
-
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from api.dependencies import init_system, close_system
+from api.routes import pipeline, memory, events
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Handle startup and shutdown events."""
+    # Startup
+    await init_system()
+    yield
+    # Shutdown
+    await close_system()
+
+
 app = FastAPI(
-    title="ContentForge",
-    description="AI Marketing Content Pipeline API",
+    title="ContentForge Pipeline API",
+    description="Event-driven autonomous marketing pipeline engine.",
     version="0.1.0",
+    lifespan=lifespan,
 )
 
-# CORS for frontend
+# Allow CORS for local frontend development (e.g. Next.js on 3000, Vite on 5173)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:5173"],
@@ -21,21 +34,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/")
-async def root():
-    return {
-        "name": "ContentForge",
-        "version": "0.1.0",
-        "status": "running",
-        "docs": "/docs",
-    }
+# Include Routers
+app.include_router(pipeline.router)
+app.include_router(memory.router)
+app.include_router(events.router)
 
 
-@app.get("/api/health")
+@app.get("/health")
 async def health_check():
-    return {"status": "ok"}
-
-
-# Routes will be added in Phase 3:
-# from api.routes import pipeline, events, research, plan, content, chat, export, files, logs
+    """Simple health check endpoint."""
+    return {"status": "ok", "version": "0.1.0"}

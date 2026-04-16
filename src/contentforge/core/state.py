@@ -102,13 +102,13 @@ class Caption(BaseModel):
     char_count: int = 0
 
 
-class Slide(BaseModel):
+class CarouselSlide(BaseModel):
     """A single carousel slide."""
     slide_number: int
     slide_type: str = ""  # "cover", "content", "cta"
-    title: str = ""
-    body: str = ""
-    visual_notes: str = ""
+    heading: str = ""
+    body_text: str = ""
+    visual_concept: str = ""
 
 
 class Theme(BaseModel):
@@ -123,6 +123,11 @@ class Theme(BaseModel):
     style_notes: str = ""
     mood: str = ""
 
+
+class ReelScriptItem(BaseModel):
+    time: str = ""
+    visual: str = ""
+    audio: str = ""
 
 class ReelScript(BaseModel):
     """Script for a reel/short-form video."""
@@ -147,10 +152,10 @@ class TopicContent(BaseModel):
     topic_id: str
     content_format: ContentFormat
     theme: Theme = Field(default_factory=Theme)
-    slides: list[Slide] = Field(default_factory=list)
+    carousel_slides: list[CarouselSlide] = Field(default_factory=list)
     image_prompts: list[str] = Field(default_factory=list)
-    react_code: str = ""
-    reel_script: ReelScript | None = None
+    rendered_code: str = ""
+    video_script: list[dict[str, str]] = Field(default_factory=list)
     captions: dict[str, dict[str, Caption]] = Field(default_factory=dict)
     status: ContentStatus = ContentStatus.PENDING
     edit_chat: list[ChatMessage] = Field(default_factory=list)
@@ -204,6 +209,7 @@ class ContentForgeState(BaseModel):
 
     # ── Deep Research ──
     deep_research: dict[str, DeepResearchItem] = Field(default_factory=dict)
+    raw_deep_research: dict[str, str] = Field(default_factory=dict)
 
     # ── Content (per topic) ──
     content: dict[str, TopicContent] = Field(default_factory=dict)
@@ -211,7 +217,9 @@ class ContentForgeState(BaseModel):
     # ── Control Flow ──
     human_action_required: bool = False
     human_action_type: HumanActionType | None = None
+    human_feedback: str = ""
     pending_topic_id: str | None = None
+    carousel_status: str = ""
     errors: list[PipelineError] = Field(default_factory=list)
 
     class Config:
