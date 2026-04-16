@@ -32,6 +32,9 @@ from contentforge.nodes.export.content_aggregator import ContentAggregator
 from contentforge.nodes.export.file_packager import FilePackager
 
 
+# Global checkpointer so API requests share the same state
+_shared_checkpointer = MemorySaver()
+
 def build_pipeline_graph(node_context: NodeContext) -> Any:
     """Builds and wires the full LangGraph state machine."""
     
@@ -242,9 +245,8 @@ def build_pipeline_graph(node_context: NodeContext) -> Any:
     # ---------------------------------------------------------
     
     # Persist state so we can interrupt memory
-    memory = MemorySaver()
     app = workflow.compile(
-        checkpointer=memory,
+        checkpointer=_shared_checkpointer,
         interrupt_before=["research_parser", "deep_prompt", "deep_parse", "edit_router"]
     )
     

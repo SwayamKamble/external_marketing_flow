@@ -94,7 +94,9 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
     
     if payload.action == "edit":
         update_data["human_feedback"] = payload.feedback
-    elif payload.action == "supply_research" and payload.deep_research_data:
+    elif payload.action == "supply_raw_research" and payload.raw_research_data:
+        update_data["raw_research"] = [payload.raw_research_data]
+    elif payload.action == "supply_deep_research" and payload.deep_research_data:
         update_data["raw_deep_research"] = payload.deep_research_data
     # 'approve' just clears the interrupt markers and proceeds
         

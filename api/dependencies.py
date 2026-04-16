@@ -32,14 +32,14 @@ async def init_system():
     )
     
     _db = DatabaseManager(db_path=os.getenv("PIPELINE_DB_PATH", "data/pipeline.db"))
-    await _db.initialize()
+    _db.initialize()
     
     _config = ConfigLoader("config")
-    _memory = FileMemory(base_dir="data", db_manager=_db)
+    _memory = FileMemory(data_dir="data")
     
     # We load brand context early so that LLM gateway can utilize configuration immediately
     # though Gateway itself just uses config map
-    _llm = LLMGateway(config_loader=_config, logger=_logger)
+    _llm = LLMGateway(config=_config)
     _prompts = PromptLoader(prompts_dir="prompts")
 
     _logger.event("system.startup", {"status": "initialized"})

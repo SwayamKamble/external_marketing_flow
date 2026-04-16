@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { connectWebSocket, startPipeline, getPipelineStatus } from "../services/api";
 import { Play, Activity, CheckCircle, Loader } from "lucide-react";
+import HumanInputPanel from "../components/HumanInputPanel";
 
 export default function Dashboard() {
   const [events, setEvents] = useState<any[]>([]);
@@ -88,6 +89,10 @@ export default function Dashboard() {
             </div>
           ) : (
             <div className="text-slate-400 text-sm py-4 text-center">No active state for {weekId}</div>
+          )}
+          
+          {pipelineState?.human_action_required && (
+              <HumanInputPanel weekId={weekId} pipelineState={pipelineState} onSubmitted={() => getPipelineStatus(weekId).then(setPipelineState)} />
           )}
         </div>
 

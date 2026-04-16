@@ -16,12 +16,17 @@ export const getPipelineStatus = async (week_id: string) => {
   return data;
 };
 
-export const provideFeedback = async (week_id: string, action: string, feedback: string = "", deep_research_data?: any) => {
+export const provideFeedback = async (week_id: string, action: string, feedback: string = "", payloadData: any = {}) => {
   const { data } = await api.post(`/pipeline/${week_id}/feedback`, {
     action,
     feedback,
-    deep_research_data
+    ...payloadData
   });
+  return data;
+};
+
+export const getArtifact = async (week_id: string, phase: string, filename: string) => {
+  const { data } = await api.get(`/memory/artifact/${week_id}/${phase}/${filename}`);
   return data;
 };
 

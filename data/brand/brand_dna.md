@@ -7,50 +7,74 @@ updated_at: "2026-04-16"
 # Brand DNA
 
 ## Brand Name
-[Your Brand Name]
+tech_by_pravesh
 
 ## Tagline
-[Your tagline — e.g., "Making AI accessible for everyone"]
+AI that actually works (not just hype)
 
 ## Mission
-[What your brand stands for — e.g., "We demystify AI tools and trends for builders, creators, and curious minds."]
+We simplify AI agents, automation workflows, and emerging tools so developers, builders, and Indian entrepreneurs can actually use them in real-world scenarios.
+
+Every piece of content focuses on one outcome:
+"You can build this yourself."
+
+We bridge the gap between cutting-edge AI tools and practical implementation through demo-first, experiment-driven content.
 
 ## Audience
 
 ### Primary Audience
-- **Who**: Tech professionals, developers, startup founders, AI enthusiasts
-- **Age Range**: 22-45
-- **Interests**: AI/ML, productivity tools, SaaS, startups, tech trends
-- **Pain Points**: Keeping up with AI developments, understanding what's hype vs. real value
-- **Where they hang out**: LinkedIn, X, Instagram tech/AI communities, Threads
+- **Who**: Indian developers, tech enthusiasts, startup founders, AI learners
+- **Age Range**: 20–35
+- **Interests**: AI tools, automation, SaaS, agentic AI, building products, side hustles
+- **Pain Points**:
+  - Too much AI noise, not enough clarity
+  - Tutorials are too global/US-focused and not relevant to India
+  - Don’t know where to start with AI agents and workflows
+  - Tools feel complex, expensive, or hard to implement
+- **Where they hang out**: Instagram, X (Twitter), YouTube, LinkedIn, Discord communities
 
 ### Secondary Audience
-- **Who**: Non-technical professionals curious about AI
-- **Interests**: How AI affects their industry, practical AI tools
-- **Pain Points**: Overwhelmed by jargon, want practical guides
+- **Who**: Non-technical professionals exploring AI (marketers, freelancers, business owners)
+- **Interests**: Productivity, automation, AI for business
+- **Pain Points**:
+  - Overwhelmed by jargon and technical complexity
+  - Want step-by-step practical guides, not theory
+  - Looking for affordable and usable AI solutions
 
 ## Brand Voice & Tone
 
 ### Core Tone
-- **Knowledgeable but not arrogant** — We know our stuff, but we explain, not lecture
-- **Approachable** — Complex topics made simple, never dumbed down
-- **Opinionated** — We take clear stances backed by reasoning
-- **Enthusiastic** — Genuine excitement about technology, not hype-y
+- **Knowledgeable but practical** — We don’t just explain, we build and test
+- **Approachable** — Complex tools broken down into simple, actionable steps
+- **Opinionated** — Clear takes based on real experiments ("I tested this")
+- **High-energy & builder-focused** — Fast, sharp, demo-first communication
 
 ### Voice Do's
-- Use "you" to address the reader directly
-- Use analogies and real-world examples
-- Break down complex topics into digestible bullets
-- Share genuine opinions with "Here's what I think" style
-- Use data and specific numbers
+- Use "you" directly — make it actionable
+- Show real builds, workflows, and experiments
+- Use short, punchy sentences (especially for hooks)
+- Mix English with light Hindi for relatability (Hinglish tone)
+- Share honest results — including failures
+- Focus on "how to use" over "how it works internally"
 
 ### Voice Don'ts
-- Never use: "In this digital age", "game-changer", "revolutionize", "buckle up"
-- Never be condescending or assume the reader is uninformed
-- Never use buzzwords without explaining them
-- Avoid passive voice when possible
-- Don't over-promise or use clickbait language
+- No generic AI news reposting without insights
+- No overhyped claims without proof
+- No heavy jargon without explanation
+- Avoid long theoretical explanations without demos
+- No vague advice ("use AI to grow faster")
 
 ## Positioning
-- **Category**: AI/Tech Content & Education
-- **Differentiation**: We bridge the gap between cutting-edge AI research and practical application. Not just news — insights, analysis, and actionable takeaways.
+
+- **Category**: AI Tools, Automation & Agentic AI Education
+
+- **Differentiation**:
+Unlike most AI creators:
+- We don’t just talk about tools — we **test, build, and show real workflows**
+- We focus on **India-specific use cases** (pricing, tools, platforms, APIs)
+- We create **demo-first content** — every concept is tied to execution
+- We simplify **advanced agentic AI concepts** for beginners-to-intermediate users
+
+This brand is positioned as:
+👉 A practical AI builder’s guide  
+👉 Not news, not theory — execution-focused content

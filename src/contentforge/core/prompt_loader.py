@@ -150,6 +150,7 @@ class PromptLoader:
         variables: dict[str, Any] = {}
         if brand_context:
             variables.update(brand_context)
+            variables["brand_context"] = brand_context
         if topic_context:
             variables.update(topic_context)
         if extra_variables:

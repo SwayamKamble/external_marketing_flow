@@ -21,9 +21,10 @@ class PipelineStatusResponse(BaseModel):
 
 class FeedbackRequest(BaseModel):
     """Payload to provide human-in-the-loop feedback/approval."""
-    action: str = Field(..., description="Action type like 'approve', 'edit', 'supply_research'")
+    action: str = Field(..., description="Action type like 'approve', 'edit', 'supply_raw_research', 'supply_deep_research'")
     feedback: str = Field("", description="Natural language feedback if rejecting/editing.")
-    deep_research_data: Optional[dict[str, str]] = Field(None, description="Pasted deep research if handling supply_research action.")
+    raw_research_data: Optional[str] = Field(None, description="Pasted raw research content for initial research phase.")
+    deep_research_data: Optional[dict[str, str]] = Field(None, description="Pasted deep research if handling supply_deep_research action.")
 
 
 class ArtifactResponse(BaseModel):
