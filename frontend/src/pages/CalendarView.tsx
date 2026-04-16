@@ -1,23 +1,54 @@
 import { useState, useEffect } from "react";
-import { getPipelineStatus, provideFeedback } from "../services/api";
+import { getPipelineStatus, selectTopics } from "../services/api";
 import { CheckCircle, Clock } from "lucide-react";
 
 export default function CalendarView() {
   const [state, setState] = useState<any>(null);
+  const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const weekId = "2026-W16"; // Hardcoded for demo
 
   useEffect(() => {
     getPipelineStatus(weekId).then((data) => setState(data)).catch(() => {});
   }, []);
 
-  const handleApprove = async () => {
-    if (!state) return;
-    const res = await provideFeedback(weekId, "approve");
-    setState(res);
+  useEffect(() => {
+    const plan = state?.state?.weekly_plan || [];
+    const uniqueTopicIds = Array.from(new Set<string>(plan.map((p: any) => p.topic_id).filter(Boolean)));
+    const currentSelected = state?.state?.selected_topics || [];
+    if (currentSelected.length > 0) {
+      setSelectedTopics(currentSelected);
+    } else {
+      setSelectedTopics(uniqueTopicIds);
+    }
+  }, [state]);
+
+  const toggleTopic = (topicId: string) => {
+    setSelectedTopics((prev) => (
+      prev.includes(topicId) ? prev.filter((t) => t !== topicId) : [...prev, topicId]
+    ));
   };
 
-  const isBlocked = state?.human_action_required && state?.human_action_type === "approve_plan";
+  const handleContinue = async () => {
+    if (!state) return;
+    setIsSubmitting(true);
+    try {
+      const res = await selectTopics(weekId, selectedTopics);
+      setState(res);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const isBlocked = state?.human_action_required && ["approve_plan", "select_topics"].includes(state?.human_action_type);
   const plan = state?.state?.weekly_plan || [];
+  const uniqueTopics = Array.from(
+    new Map(
+      plan
+        .filter((p: any) => p.topic_id)
+        .map((p: any) => [p.topic_id, { id: p.topic_id, title: p.topic_title, format: p.content_format }])
+    ).values()
+  );
 
   return (
     <div className="p-8 max-w-6xl mx-auto">
@@ -25,14 +56,34 @@ export default function CalendarView() {
         <h2 className="text-3xl font-bold text-slate-800">Weekly Calendar Plan</h2>
         {isBlocked && (
           <button 
-            onClick={handleApprove}
-            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-emerald-200 flex gap-2 items-center transition"
+            onClick={handleContinue}
+            disabled={isSubmitting || selectedTopics.length === 0}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-lg font-bold shadow-lg shadow-emerald-200 flex gap-2 items-center transition disabled:opacity-50"
           >
             <CheckCircle size={20} />
-            Approve Plan & Proceed
+            {isSubmitting ? "Submitting..." : "Use Selected Topics & Proceed"}
           </button>
         )}
       </div>
+
+      {isBlocked && (
+        <div className="mb-8 bg-white border border-slate-200 rounded-lg p-4">
+          <h3 className="font-semibold text-slate-800 mb-3">Select Topics To Continue</h3>
+          <div className="grid md:grid-cols-2 gap-2">
+            {uniqueTopics.map((topic: any) => (
+              <label key={topic.id} className="flex items-center gap-2 p-2 rounded hover:bg-slate-50 border border-slate-100">
+                <input
+                  type="checkbox"
+                  checked={selectedTopics.includes(topic.id)}
+                  onChange={() => toggleTopic(topic.id)}
+                />
+                <span className="text-sm text-slate-700">{topic.title}</span>
+                <span className="ml-auto text-[10px] font-mono bg-blue-100 text-blue-700 px-2 py-1 rounded">{topic.format}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-7 gap-4">
         {["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"].map(day => {

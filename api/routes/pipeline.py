@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from api.schemas import StartPipelineRequest, PipelineStatusResponse, FeedbackRequest
 from api.dependencies import get_node_context
 from contentforge.core.graph import build_pipeline_graph
-from contentforge.core.state import ContentForgeState
+from contentforge.core.state import ContentForgeState, ContentStatus
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
@@ -91,13 +91,63 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
         "human_action_required": False,
         "human_action_type": None
     }
-    
+    plan_topic_ids = [item.topic_id for item in state_obj.weekly_plan if item.topic_id]
+
     if payload.action == "edit":
+        if not payload.feedback.strip():
+            raise HTTPException(status_code=422, detail="feedback is required for action='edit'")
         update_data["human_feedback"] = payload.feedback
-    elif payload.action == "supply_raw_research" and payload.raw_research_data:
+    elif payload.action == "supply_raw_research":
+        if not payload.raw_research_data or not payload.raw_research_data.strip():
+            raise HTTPException(status_code=422, detail="raw_research_data is required for action='supply_raw_research'")
         update_data["raw_research"] = [payload.raw_research_data]
-    elif payload.action == "supply_deep_research" and payload.deep_research_data:
-        update_data["raw_deep_research"] = payload.deep_research_data
+    elif payload.action == "select_topics":
+        selected = payload.selected_topics or []
+        selected = [t for t in selected if t]
+        if not selected:
+            raise HTTPException(status_code=422, detail="selected_topics is required and cannot be empty")
+
+        invalid = [t for t in selected if t not in plan_topic_ids]
+        if invalid:
+            raise HTTPException(status_code=422, detail=f"Invalid selected_topics: {invalid}")
+
+        update_data["selected_topics"] = selected
+        update_data["topic_queue"] = selected
+        update_data["pending_topic_id"] = selected[0]
+        update_data["topic_index"] = 1
+        update_data["topic_total"] = len(selected)
+    elif payload.action == "supply_deep_research":
+        topic_id = payload.topic_id or state_obj.pending_topic_id
+        if not topic_id:
+            raise HTTPException(status_code=422, detail="topic_id is required for action='supply_deep_research'")
+
+        if state_obj.pending_topic_id and topic_id != state_obj.pending_topic_id:
+            raise HTTPException(
+                status_code=422,
+                detail=f"topic_id '{topic_id}' does not match pending_topic_id '{state_obj.pending_topic_id}'"
+            )
+
+        research_text = payload.deep_research_text
+        if not research_text and payload.deep_research_data:
+            research_text = payload.deep_research_data.get(topic_id)
+
+        if not research_text or not research_text.strip():
+            raise HTTPException(status_code=422, detail="deep_research_text (or deep_research_data[topic_id]) is required")
+
+        merged = dict(state_obj.raw_deep_research)
+        merged[topic_id] = research_text
+        update_data["raw_deep_research"] = merged
+    elif payload.action in ("approve", "approve_content"):
+        if state_obj.pending_topic_id and state_obj.pending_topic_id in state_obj.content:
+            updated_content = dict(state_obj.content)
+            tc = updated_content[state_obj.pending_topic_id]
+            tc.status = ContentStatus.APPROVED
+            updated_content[state_obj.pending_topic_id] = tc
+            update_data["content"] = updated_content
+    elif payload.action == "approve_plan":
+        # No-op action kept for compatibility with existing frontend behavior.
+        # The pipeline will wait for explicit `select_topics` before deep research.
+        pass
     # 'approve' just clears the interrupt markers and proceeds
         
     try:

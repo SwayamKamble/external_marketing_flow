@@ -206,6 +206,9 @@ class ContentForgeState(BaseModel):
     # ── Plan ──
     weekly_plan: list[PlanItem] = Field(default_factory=list)
     selected_topics: list[str] = Field(default_factory=list)
+    topic_queue: list[str] = Field(default_factory=list)
+    topic_index: int = 0
+    topic_total: int = 0
 
     # ── Deep Research ──
     deep_research: dict[str, DeepResearchItem] = Field(default_factory=dict)

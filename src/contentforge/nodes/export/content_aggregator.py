@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from contentforge.core.state import ContentStatus
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
@@ -41,8 +42,16 @@ class ContentAggregator(BaseNode):
             filename="final_payload.json",
             content=json.dumps(export_payload, indent=2, default=str),
         )
+
+        tc.status = ContentStatus.EXPORTED
+        updated_content = dict(content_dict)
+        updated_content[topic_id] = tc
         
         if context.logger:
             context.logger.event("content.exported", {"topic_id": topic_id})
 
-        return {"final_export": export_payload, "pipeline_status": "packaging"}
+        return {
+            "content": updated_content,
+            "final_export": export_payload,
+            "pipeline_status": "packaging",
+        }

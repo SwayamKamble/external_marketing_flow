@@ -25,6 +25,28 @@ export const provideFeedback = async (week_id: string, action: string, feedback:
   return data;
 };
 
+export const selectTopics = async (week_id: string, topicIds: string[]) => {
+  const { data } = await api.post(`/pipeline/${week_id}/feedback`, {
+    action: "select_topics",
+    selected_topics: topicIds,
+  });
+  return data;
+};
+
+export const submitDeepResearchForTopic = async (week_id: string, topicId: string, deepResearchText: string) => {
+  const { data } = await api.post(`/pipeline/${week_id}/feedback`, {
+    action: "supply_deep_research",
+    topic_id: topicId,
+    deep_research_text: deepResearchText,
+  });
+  return data;
+};
+
+export const renderCarouselPreview = async (week_id: string, topicId: string) => {
+  const { data } = await api.post(`/carousel/render/${week_id}/${topicId}`);
+  return data;
+};
+
 export const getArtifact = async (week_id: string, phase: string, filename: string) => {
   const { data } = await api.get(`/memory/artifact/${week_id}/${phase}/${filename}`);
   return data;

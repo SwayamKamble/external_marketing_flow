@@ -75,7 +75,6 @@ class CalendarPlanner(BaseNode):
 
         # Build list of PlanItems
         weekly_plan = []
-        selected_topics = []
         for item in plan_data:
             topic_id = item.get("topic_id")
             
@@ -94,8 +93,6 @@ class CalendarPlanner(BaseNode):
                 reasoning=item.get("reasoning", "")
             )
             weekly_plan.append(plan_item)
-            if topic_id and topic_id not in selected_topics:
-                selected_topics.append(topic_id)
         
         # Save artifact for user review
         md_content = "# Weekly Content Plan\n\n"
@@ -118,8 +115,12 @@ class CalendarPlanner(BaseNode):
 
         return {
             "weekly_plan": weekly_plan,
-            "selected_topics": selected_topics,
+            "selected_topics": [],
+            "topic_queue": [],
+            "pending_topic_id": None,
+            "topic_index": 0,
+            "topic_total": len(weekly_plan),
             "pipeline_status": "planning",
             "human_action_required": True,
-            "human_action_type": "approve_plan"
+            "human_action_type": "select_topics"
         }

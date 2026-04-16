@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Any
 
-from contentforge.core.state import Caption, Platform
+from contentforge.core.state import Caption, Platform, ContentStatus
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
@@ -124,6 +124,8 @@ class CaptionWriter(BaseNode):
             filename="captions.md",
             content=md_content,
         )
+
+        tc.status = ContentStatus.DRAFT
 
         updated_content = dict(content_dict)
         updated_content[topic_id] = tc

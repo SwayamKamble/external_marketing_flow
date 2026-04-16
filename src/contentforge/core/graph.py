@@ -164,7 +164,11 @@ def build_pipeline_graph(node_context: NodeContext) -> Any:
         tid = state.pending_topic_id
         if not tid or tid not in state.content:
             return "edit_router" # Fallback
-            
+
+        status_value = state.content[tid].status.value if hasattr(state.content[tid].status, "value") else str(state.content[tid].status)
+        if status_value != "pending":
+            return "edit_router"
+
         fmt = state.content[tid].content_format.value
         if fmt == "carousel":
             return "carousel_supervisor"
@@ -191,6 +195,28 @@ def build_pipeline_graph(node_context: NodeContext) -> Any:
             return "chat_edit"
         return "export_agg"
 
+    def deep_research_router(state: ContentForgeState) -> str:
+        """Loops deep research topic-by-topic until queue is exhausted."""
+        if state.topic_queue:
+            return "deep_prompt"
+        return "content_router"
+
+    def post_packaging_router(state: ContentForgeState) -> str:
+        """After packaging one topic, continue with next topic if needed."""
+        selected_topics = state.selected_topics or []
+        if not selected_topics:
+            return END
+
+        for topic_id in selected_topics:
+            tc = state.content.get(topic_id)
+            if not tc:
+                return "content_router"
+            status_value = tc.status.value if hasattr(tc.status, "value") else str(tc.status)
+            if status_value != "exported":
+                return "content_router"
+
+        return END
+
     # ---------------------------------------------------------
     # 4. Wire the Edges
     # ---------------------------------------------------------
@@ -211,7 +237,7 @@ def build_pipeline_graph(node_context: NodeContext) -> Any:
     # Phase 3: Deep Research
     # Human interrupts to run deep prompts
     workflow.add_edge("deep_prompt", "deep_parse")
-    workflow.add_edge("deep_parse", "content_router")
+    workflow.add_conditional_edges("deep_parse", deep_research_router)
 
     # Phase 4: Content Generation
     # (Content Router branches out)
@@ -238,7 +264,7 @@ def build_pipeline_graph(node_context: NodeContext) -> Any:
 
     # Phase 6: Export
     workflow.add_edge("export_agg", "packaging")
-    workflow.add_edge("packaging", END)
+    workflow.add_conditional_edges("packaging", post_packaging_router)
 
     # ---------------------------------------------------------
     # 5. Compile!

@@ -30,10 +30,15 @@ class EditRouter(BaseNode):
 
         if tc.status == ContentStatus.APPROVED:
             return {"pipeline_status": "export"}
+
+        tc.status = ContentStatus.EDITING
+        updated_content = dict(content_dict)
+        updated_content[topic_id] = tc
         
         # We need human approval or feedback
         # LangGraph will pause here and wait for Human-in-the-loop
         return {
+            "content": updated_content,
             "pipeline_status": "editing",
             "human_action_required": True,
             "human_action_type": "review_content"

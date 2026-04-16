@@ -1,12 +1,17 @@
 import { useState, useEffect } from "react";
-import { getPipelineStatus, provideFeedback } from "../services/api";
+import { getPipelineStatus, provideFeedback, renderCarouselPreview } from "../services/api";
 import { Send, AlertCircle } from "lucide-react";
 
 export default function HumanInLoopChat() {
   const [state, setState] = useState<any>(null);
   const [feedback, setFeedback] = useState("");
   const [isSending, setIsSending] = useState(false);
+    const [isRenderingCarousel, setIsRenderingCarousel] = useState(false);
+    const [carouselPreviewImages, setCarouselPreviewImages] = useState<any[]>([]);
+    const [carouselError, setCarouselError] = useState("");
   const weekId = "2026-W16"; // Hardcoded for demo
+    const topicId = state?.pending_topic_id;
+    const tc = state?.state?.content?.[topicId];
 
   useEffect(() => {
     // Poll or use websocket internally, for demo we just fetch
@@ -15,6 +20,11 @@ export default function HumanInLoopChat() {
     }, 2000);
     return () => clearInterval(interval);
   }, []);
+
+    useEffect(() => {
+        setCarouselPreviewImages([]);
+        setCarouselError("");
+    }, [topicId]);
 
   const handleSendFeedback = async () => {
     if (!feedback.trim()) return;
@@ -28,9 +38,21 @@ export default function HumanInLoopChat() {
       await provideFeedback(weekId, "approve");
   }
 
+    const handleRenderCarousel = async () => {
+        if (!topicId) return;
+        setIsRenderingCarousel(true);
+        setCarouselError("");
+        try {
+            const response = await renderCarouselPreview(weekId, topicId);
+            setCarouselPreviewImages(response.images || []);
+        } catch (e: any) {
+            setCarouselError(e?.response?.data?.detail || "Failed to render carousel preview.");
+        } finally {
+            setIsRenderingCarousel(false);
+        }
+    };
+
   const isEditingBlocked = state?.human_action_required && state?.human_action_type === "review_content";
-  const topicId = state?.pending_topic_id;
-  const tc = state?.state?.content?.[topicId];
 
   return (
     <div className="p-8 max-w-4xl mx-auto flex flex-col h-full">
@@ -76,6 +98,38 @@ export default function HumanInLoopChat() {
                              </div>
                          )}
                      </div>
+
+                                         {tc.content_format === "carousel" && (
+                                                <div className="mt-4 border-t pt-4">
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <strong className="text-slate-800">Carousel Preview</strong>
+                                                        <button
+                                                            onClick={handleRenderCarousel}
+                                                            disabled={isRenderingCarousel}
+                                                            className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded text-xs disabled:opacity-50"
+                                                        >
+                                                            {isRenderingCarousel ? "Rendering..." : "Render Preview"}
+                                                        </button>
+                                                    </div>
+
+                                                    {carouselError && (
+                                                        <div className="text-xs text-red-600 mb-2">{carouselError}</div>
+                                                    )}
+
+                                                    {carouselPreviewImages.length > 0 && (
+                                                        <div className="grid md:grid-cols-2 gap-3">
+                                                            {carouselPreviewImages.map((img: any) => (
+                                                                <img
+                                                                    key={img.filename}
+                                                                    src={img.data_url}
+                                                                    alt={img.filename}
+                                                                    className="w-full rounded border border-slate-200"
+                                                                />
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                         )}
                  </div>
              )}
          </div>
@@ -94,6 +148,8 @@ export default function HumanInLoopChat() {
              <button 
                 onClick={handleSendFeedback}
                 disabled={!isEditingBlocked || isSending || !feedback.trim()}
+                     title="Send feedback"
+                     aria-label="Send feedback"
                 className="bg-blue-600 hover:bg-blue-700 text-white rounded-full p-3 disabled:opacity-50 transition"
              >
                  <Send size={20} />

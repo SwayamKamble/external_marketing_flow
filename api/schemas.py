@@ -1,7 +1,7 @@
 """Pydantic schemas for the FastAPI layer."""
 
 from pydantic import BaseModel, Field
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 
 class StartPipelineRequest(BaseModel):
@@ -21,10 +21,21 @@ class PipelineStatusResponse(BaseModel):
 
 class FeedbackRequest(BaseModel):
     """Payload to provide human-in-the-loop feedback/approval."""
-    action: str = Field(..., description="Action type like 'approve', 'edit', 'supply_raw_research', 'supply_deep_research'")
+    action: Literal[
+        "approve",
+        "approve_plan",
+        "approve_content",
+        "edit",
+        "select_topics",
+        "supply_raw_research",
+        "supply_deep_research",
+    ] = Field(..., description="Action type controlling how the pipeline resumes.")
     feedback: str = Field("", description="Natural language feedback if rejecting/editing.")
     raw_research_data: Optional[str] = Field(None, description="Pasted raw research content for initial research phase.")
-    deep_research_data: Optional[dict[str, str]] = Field(None, description="Pasted deep research if handling supply_deep_research action.")
+    deep_research_data: Optional[dict[str, str]] = Field(None, description="Optional map {topic_id: research_text} for deep research input.")
+    deep_research_text: Optional[str] = Field(None, description="Deep research text for a single topic.")
+    topic_id: Optional[str] = Field(None, description="Topic ID for topic-scoped actions.")
+    selected_topics: Optional[list[str]] = Field(None, description="Explicitly selected topics to continue after planning.")
 
 
 class ArtifactResponse(BaseModel):
@@ -34,3 +45,17 @@ class ArtifactResponse(BaseModel):
     filename: str
     content: str
     metadata: dict[str, Any]
+
+
+class CarouselImage(BaseModel):
+    """Single rendered carousel image payload."""
+    filename: str
+    data_url: str
+
+
+class CarouselRenderResponse(BaseModel):
+    """Rendered carousel preview response."""
+    week_id: str
+    topic_id: str
+    count: int
+    images: list[CarouselImage]

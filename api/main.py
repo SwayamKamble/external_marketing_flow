@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import init_system, close_system
-from api.routes import pipeline, memory, events
+from api.routes import pipeline, memory, events, carousel
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app.add_middleware(
 app.include_router(pipeline.router)
 app.include_router(memory.router)
 app.include_router(events.router)
+app.include_router(carousel.router)
 
 
 @app.get("/health")
