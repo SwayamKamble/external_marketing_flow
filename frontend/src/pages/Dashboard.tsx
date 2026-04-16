@@ -31,7 +31,8 @@ export default function Dashboard() {
   }, [weekId]);
 
   const actionType = pipelineState?.human_action_type;
-  const isResearchInputAction = ["paste_research", "paste_deep_research"].includes(actionType) || (!actionType && pipelineState?.status === "research");
+  const isResearchStage = ["research", "deep_research"].includes(pipelineState?.status);
+  const isResearchInputAction = ["paste_research", "paste_deep_research"].includes(actionType) || isResearchStage;
   const actionHints: Record<string, string> = {
     select_topics: "Select topics in Weekly Calendar, then continue.",
     paste_research: "Paste weekly research results in this panel.",
@@ -39,6 +40,24 @@ export default function Dashboard() {
     review_content: "Review content in Content Review and approve or edit.",
   };
   const nextActionHint = actionType ? actionHints[actionType] : "";
+
+  const formatTimestamp = (timestamp: any) => {
+    const parsed = new Date(timestamp ?? "");
+    if (Number.isNaN(parsed.getTime())) {
+      return "--:--:--";
+    }
+    return parsed.toLocaleTimeString();
+  };
+
+  const normalizeLogEvent = (ev: any) => {
+    const data = ev?.data ?? ev?.details ?? ev?.payload ?? {};
+    return {
+      timestamp: ev?.timestamp,
+      level: ev?.level ?? ev?.type ?? "EVENT",
+      event: ev?.event ?? ev?.node ?? ev?.name ?? "unknown",
+      data,
+    };
+  };
 
   const handleStart = async () => {
     setIsRunning(true);
@@ -79,7 +98,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-3 gap-6 items-start">
         {/* State Panel */}
         <div className="col-span-1 bg-white border border-slate-200 rounded-xl p-6 shadow-sm flex flex-col gap-4">
           <h3 className="font-semibold text-lg flex gap-2 items-center border-b pb-4">
@@ -119,13 +138,11 @@ export default function Dashboard() {
             <div className="text-slate-400 text-sm py-4 text-center">No active state for {weekId}</div>
           )}
           
-          {pipelineState?.human_action_required && isResearchInputAction && (
-              <HumanInputPanel weekId={weekId} pipelineState={pipelineState} onSubmitted={() => getPipelineStatus(weekId).then(setPipelineState)} />
-          )}
         </div>
 
-        {/* Live Tail Log */}
-        <div className="col-span-2 bg-slate-900 rounded-xl p-6 shadow-sm flex flex-col gap-4 h-96">
+          {/* Live Tail Log + Research Input */}
+          <div className="col-span-2 flex flex-col gap-6">
+            <div className="bg-slate-900 rounded-xl p-6 shadow-sm flex flex-col gap-4 h-96">
            <h3 className="font-semibold text-lg flex gap-2 items-center border-b border-slate-700 text-slate-100 pb-4">
             <Activity size={20} className="text-emerald-400"/> Live WebSocket Log
           </h3>
@@ -133,10 +150,13 @@ export default function Dashboard() {
              {events.length === 0 ? (
                <div className="text-slate-500 text-center mt-20">Waiting for events...</div>
              ) : (
-               events.map((ev, idx) => (
+                 events.map((rawEvent, idx) => {
+                   const ev = normalizeLogEvent(rawEvent);
+
+                   return (
                  <div key={idx} className="flex gap-4 p-2 hover:bg-slate-800 rounded">
                     <span className="text-slate-500 shrink-0">
-                      {new Date(ev.timestamp).toLocaleTimeString()}
+                        {formatTimestamp(ev.timestamp)}
                     </span>
                     <span className={`font-bold shrink-0 ${ev.level === 'INFO' ? 'text-blue-400' : 'text-amber-400'}`}>
                       [{ev.level}]
@@ -145,13 +165,19 @@ export default function Dashboard() {
                       &lt;{ev.event}&gt;
                     </span>
                     <span className="text-slate-400 truncate">
-                      {JSON.stringify(ev.data)}
+                        {JSON.stringify(ev.data ?? {})}
                     </span>
-                 </div>
-               ))
+                   </div>
+                 );
+                 })
              )}
           </div>
-        </div>
+            </div>
+
+            {isResearchInputAction && (
+              <HumanInputPanel weekId={weekId} pipelineState={pipelineState} onSubmitted={() => getPipelineStatus(weekId).then(setPipelineState)} />
+            )}
+          </div>
       </div>
     </div>
   );

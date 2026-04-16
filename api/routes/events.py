@@ -3,6 +3,7 @@
 import asyncio
 import json
 import os
+from datetime import datetime
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from api.dependencies import get_logger
@@ -16,13 +17,24 @@ async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     logger = get_logger()
     
-    # In a real app we'd tail the specific week_id log file.
-    # For this implementation, we will tail the shared events.jsonl
-    log_file = os.path.join(logger.log_dir, "events.jsonl")
+    # Tail the shared pipeline event log emitted by PipelineLogger.event(...)
+    log_file = os.path.join(logger.log_dir, "pipeline_events.log")
+
+    def normalize_event(event_data: dict) -> dict:
+        details = event_data.get("details") or {}
+        timestamp = event_data.get("timestamp")
+        if not timestamp:
+            timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+
+        return {
+            "timestamp": timestamp,
+            "level": event_data.get("level", "EVENT"),
+            "event": event_data.get("event", event_data.get("node", "unknown")),
+            "data": details,
+        }
     
     try:
         if not os.path.exists(log_file):
-            await websocket.send_text(json.dumps({"error": "No event log found yet."}))
             # Wait for file to be created by the pipeline
             while not os.path.exists(log_file):
                 await asyncio.sleep(1)
@@ -40,7 +52,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 # We have a new log line, send it to the client
                 try:
                     event_data = json.loads(line)
-                    await websocket.send_text(json.dumps(event_data))
+                    await websocket.send_text(json.dumps(normalize_event(event_data)))
                 except json.JSONDecodeError:
                     pass # Ignore mangled lines
                     

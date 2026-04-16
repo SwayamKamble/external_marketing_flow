@@ -6,6 +6,7 @@ from typing import Any
 
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
 from contentforge.core.state import ContentForgeState
 from contentforge.nodes._base import NodeContext
@@ -32,14 +33,31 @@ from contentforge.nodes.export.content_aggregator import ContentAggregator
 from contentforge.nodes.export.file_packager import FilePackager
 
 
-# Global checkpointer so API requests share the same state
-_shared_checkpointer = MemorySaver()
+# Global checkpointer so API requests share the same state.
+# Allowlist our state module types so strict msgpack mode remains compatible.
+_checkpoint_serde = JsonPlusSerializer().with_msgpack_allowlist(
+    [
+        ("contentforge.core.state", "ContentFormat"),
+        ("contentforge.core.state", "Topic"),
+    ]
+)
+_shared_checkpointer = MemorySaver(serde=_checkpoint_serde)
 
-def build_pipeline_graph(node_context: NodeContext) -> Any:
+DEFAULT_INTERRUPTS = ["research_parser", "deep_prompt", "deep_parse", "edit_router"]
+
+def build_pipeline_graph(node_context: NodeContext, interrupt_before: list[str] | None = None) -> Any:
     """Builds and wires the full LangGraph state machine."""
     
     # Initialize the graph builder with our strictly typed Pydantic state
     workflow = StateGraph(ContentForgeState)
+
+    def _state_input(state: ContentForgeState) -> dict[str, Any]:
+        """Build a node input dict while preserving nested Pydantic objects.
+
+        Using model_dump() here would recursively turn Topic/PlanItem models into
+        plain dicts, but many nodes rely on attribute access (topic.id, etc.).
+        """
+        return {name: getattr(state, name) for name in state.__class__.model_fields}
     
     # ---------------------------------------------------------
     # 1. Instantiate Nodes (injecting context dependency)
@@ -47,83 +65,83 @@ def build_pipeline_graph(node_context: NodeContext) -> Any:
     
     # Research Phase
     async def n_brand_loader(state: ContentForgeState):
-        result = await BrandContextLoader().run(state.model_dump(), node_context)
+        result = await BrandContextLoader().run(_state_input(state), node_context)
         return result
 
     async def n_prompt_gen(state: ContentForgeState):
-        result = await ResearchPromptGenerator().run(state.model_dump(), node_context)
+        result = await ResearchPromptGenerator().run(_state_input(state), node_context)
         return result
 
     async def n_research_parser(state: ContentForgeState):
-        result = await ResearchParser().run(state.model_dump(), node_context)
+        result = await ResearchParser().run(_state_input(state), node_context)
         return result
 
     # Scoring & Planning
     async def n_scorer(state: ContentForgeState):
-        result = await TopicScorer().run(state.model_dump(), node_context)
+        result = await TopicScorer().run(_state_input(state), node_context)
         return result
 
     async def n_planner(state: ContentForgeState):
-        result = await CalendarPlanner().run(state.model_dump(), node_context)
+        result = await CalendarPlanner().run(_state_input(state), node_context)
         return result
 
     # Deep Research
     async def n_deep_prompt(state: ContentForgeState):
-        result = await DeepResearchPromptGenerator().run(state.model_dump(), node_context)
+        result = await DeepResearchPromptGenerator().run(_state_input(state), node_context)
         return result
 
     async def n_deep_parse(state: ContentForgeState):
-        result = await DeepResearchParser().run(state.model_dump(), node_context)
+        result = await DeepResearchParser().run(_state_input(state), node_context)
         return result
 
     # Content Gen
     async def n_router(state: ContentForgeState):
-        result = await ContentRouter().run(state.model_dump(), node_context)
+        result = await ContentRouter().run(_state_input(state), node_context)
         return result
 
     async def n_theme(state: ContentForgeState):
-        result = await ThemeDesigner().run(state.model_dump(), node_context)
+        result = await ThemeDesigner().run(_state_input(state), node_context)
         return result
 
     async def n_captions(state: ContentForgeState):
-        result = await CaptionWriter().run(state.model_dump(), node_context)
+        result = await CaptionWriter().run(_state_input(state), node_context)
         return result
         
     async def n_image_engineer(state: ContentForgeState):
-        result = await ImagePromptEngineer().run(state.model_dump(), node_context)
+        result = await ImagePromptEngineer().run(_state_input(state), node_context)
         return result
 
     async def n_carousel_create(state: ContentForgeState):
-        result = await CarouselCreator().run(state.model_dump(), node_context)
+        result = await CarouselCreator().run(_state_input(state), node_context)
         return result
 
     async def n_slide_writer(state: ContentForgeState):
-        result = await SlideContentWriter().run(state.model_dump(), node_context)
+        result = await SlideContentWriter().run(_state_input(state), node_context)
         return result
 
     async def n_react_gen(state: ContentForgeState):
-        result = await ReactCodeGenerator().run(state.model_dump(), node_context)
+        result = await ReactCodeGenerator().run(_state_input(state), node_context)
         return result
 
     async def n_reel_script(state: ContentForgeState):
-        result = await ScriptWriter().run(state.model_dump(), node_context)
+        result = await ScriptWriter().run(_state_input(state), node_context)
         return result
 
     # Editing & Export
     async def n_edit_router(state: ContentForgeState):
-        result = await EditRouter().run(state.model_dump(), node_context)
+        result = await EditRouter().run(_state_input(state), node_context)
         return result
 
     async def n_chat_edit(state: ContentForgeState):
-        result = await ChatEditAgent().run(state.model_dump(), node_context)
+        result = await ChatEditAgent().run(_state_input(state), node_context)
         return result
 
     async def n_export_agg(state: ContentForgeState):
-        result = await ContentAggregator().run(state.model_dump(), node_context)
+        result = await ContentAggregator().run(_state_input(state), node_context)
         return result
 
     async def n_packaging(state: ContentForgeState):
-        result = await FilePackager().run(state.model_dump(), node_context)
+        result = await FilePackager().run(_state_input(state), node_context)
         return result
 
     # ---------------------------------------------------------
@@ -273,7 +291,7 @@ def build_pipeline_graph(node_context: NodeContext) -> Any:
     # Persist state so we can interrupt memory
     app = workflow.compile(
         checkpointer=_shared_checkpointer,
-        interrupt_before=["research_parser", "deep_prompt", "deep_parse", "edit_router"]
+        interrupt_before=interrupt_before if interrupt_before is not None else DEFAULT_INTERRUPTS,
     )
     
     return app

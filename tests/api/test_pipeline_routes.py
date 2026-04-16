@@ -48,10 +48,18 @@ class _FakeGraph:
     def get_state(self, _config):
         return SimpleNamespace(values=self._snapshot_values)
 
-    async def ainvoke(self, update_data, config=None, **_kwargs):
+    def update_state(self, _config, values, **_kwargs):
         merged = dict(self._snapshot_values)
-        merged.update(update_data)
-        return merged
+        merged.update(values or {})
+        self._snapshot_values = merged
+        return _config
+
+    async def ainvoke(self, update_data, config=None, **_kwargs):
+        if update_data:
+            merged = dict(self._snapshot_values)
+            merged.update(update_data)
+            self._snapshot_values = merged
+        return dict(self._snapshot_values)
 
 
 def _build_state_for_feedback() -> dict:

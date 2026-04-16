@@ -30,7 +30,8 @@ Thumbs.db
 data/weeks/
 data/logs/
 data/pipeline.db
-
+data/pipeline.db-shm
+data/pipeline.db-wal
 # ── Node.js ──
 node_modules/
 frontend/node_modules/
@@ -49,3 +50,5 @@ htmlcov/
 # ── Exports ──
 *.png
 *.gif
+
+

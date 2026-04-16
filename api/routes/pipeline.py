@@ -4,8 +4,8 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from pydantic import BaseModel
 
 from api.schemas import StartPipelineRequest, PipelineStatusResponse, FeedbackRequest
-from api.dependencies import get_node_context
-from contentforge.core.graph import build_pipeline_graph
+from api.dependencies import get_node_context, get_memory
+from contentforge.core.graph import build_pipeline_graph, DEFAULT_INTERRUPTS
 from contentforge.core.state import ContentForgeState, ContentStatus
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
@@ -85,6 +85,17 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
         raise HTTPException(status_code=404, detail="Pipeline thread not found")
         
     state_obj = ContentForgeState(**snapshot.values)
+
+    if context.logger:
+        context.logger.event(
+            "api.feedback.received",
+            {
+                "week_id": week_id,
+                "action": payload.action,
+                "human_action_type": state_obj.human_action_type,
+                "status_before": state_obj.pipeline_status,
+            },
+        )
     
     # We must patch the state before continuing
     update_data = {
@@ -100,6 +111,21 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
     elif payload.action == "supply_raw_research":
         if not payload.raw_research_data or not payload.raw_research_data.strip():
             raise HTTPException(status_code=422, detail="raw_research_data is required for action='supply_raw_research'")
+        try:
+            memory = get_memory()
+            memory.write_artifact(
+                week_id=week_id,
+                phase="01_research",
+                filename="submitted_raw_research.md",
+                content=payload.raw_research_data,
+                metadata={
+                    "source": "human_submission",
+                    "action": "supply_raw_research",
+                    "week_id": week_id,
+                },
+            )
+        except AssertionError:
+            pass
         update_data["raw_research"] = [payload.raw_research_data]
     elif payload.action == "select_topics":
         selected = payload.selected_topics or []
@@ -134,6 +160,24 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
         if not research_text or not research_text.strip():
             raise HTTPException(status_code=422, detail="deep_research_text (or deep_research_data[topic_id]) is required")
 
+        try:
+            memory = get_memory()
+            memory.write_artifact(
+                week_id=week_id,
+                phase="04_deep_research",
+                topic_id=topic_id,
+                filename="submitted_deep_research.md",
+                content=research_text,
+                metadata={
+                    "source": "human_submission",
+                    "action": "supply_deep_research",
+                    "week_id": week_id,
+                    "topic_id": topic_id,
+                },
+            )
+        except AssertionError:
+            pass
+
         merged = dict(state_obj.raw_deep_research)
         merged[topic_id] = research_text
         update_data["raw_deep_research"] = merged
@@ -149,15 +193,45 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
         # The pipeline will wait for explicit `select_topics` before deep research.
         pass
     # 'approve' just clears the interrupt markers and proceeds
+
+    resume_interrupts = list(DEFAULT_INTERRUPTS)
+    if payload.action == "supply_raw_research" and "research_parser" in resume_interrupts:
+        resume_interrupts.remove("research_parser")
+    if payload.action in ("select_topics", "approve_plan") and "deep_prompt" in resume_interrupts:
+        resume_interrupts.remove("deep_prompt")
+    if payload.action == "supply_deep_research" and "deep_parse" in resume_interrupts:
+        resume_interrupts.remove("deep_parse")
+    if payload.action in ("approve", "approve_content", "edit") and "edit_router" in resume_interrupts:
+        resume_interrupts.remove("edit_router")
+
+    resume_app = build_pipeline_graph(context, interrupt_before=resume_interrupts)
+
+    def _persist_and_resume(values: dict[str, object]) -> dict:
+        resumed_config = resume_app.update_state(config, values)
+        return resumed_config
         
     try:
-        # Continue the graph with the state updates
-        final_state = await app.ainvoke(update_data, config=config)
+        resumed_config = _persist_and_resume(update_data)
+        final_state = await resume_app.ainvoke({}, config=resumed_config)
     except Exception as e:
         context.logger.error("api_resume_pipeline", f"Failed resuming graph: {e}")
         raise HTTPException(status_code=500, detail=str(e))
         
     new_state = ContentForgeState(**final_state)
+
+    if context.logger:
+        context.logger.event(
+            "api.feedback.completed",
+            {
+                "week_id": week_id,
+                "action": payload.action,
+                "status_after": new_state.pipeline_status,
+                "human_action_required": new_state.human_action_required,
+                "human_action_type": new_state.human_action_type,
+                "topic_bank_count": len(new_state.topic_bank),
+                "weekly_plan_count": len(new_state.weekly_plan),
+            },
+        )
     
     return PipelineStatusResponse(
         week_id=week_id,

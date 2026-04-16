@@ -6,6 +6,8 @@ export default function HumanInputPanel({ weekId, pipelineState, onSubmitted }: 
   const [textInput, setTextInput] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [promptContent, setPromptContent] = useState<string>("");
+  const [copyLabel, setCopyLabel] = useState("Copy Prompt");
+  const [submitNote, setSubmitNote] = useState("");
   const [dragActive, setDragActive] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -58,9 +60,12 @@ export default function HumanInputPanel({ weekId, pipelineState, onSubmitted }: 
              await provideFeedback(weekId, "supply_raw_research", "", { raw_research_data: textInput });
         }
         setTextInput("");
+      setSubmitNote("Saved and submitted.");
+      window.setTimeout(() => setSubmitNote(""), 2500);
         onSubmitted();
     } catch (e) {
         console.error("Failed to submit feedback", e);
+      setSubmitNote("Submit failed. Check backend logs.");
     } finally {
         setIsSubmitting(false);
     }
@@ -96,7 +101,20 @@ export default function HumanInputPanel({ weekId, pipelineState, onSubmitted }: 
     }
   };
 
-  if (!pipelineState?.human_action_required) return null;
+  const handleCopyPrompt = async () => {
+    if (!promptContent.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(promptContent);
+      setCopyLabel("Copied");
+      window.setTimeout(() => setCopyLabel("Copy Prompt"), 1500);
+    } catch {
+      setCopyLabel("Copy Failed");
+      window.setTimeout(() => setCopyLabel("Copy Prompt"), 1500);
+    }
+  };
+
+  if (!isResearchInterrupt && !pipelineState?.human_action_required) return null;
 
   return (
     <div className="bg-white border-2 border-indigo-200 rounded-xl shadow-lg flex flex-col mt-4 overflow-hidden">
@@ -110,9 +128,18 @@ export default function HumanInputPanel({ weekId, pipelineState, onSubmitted }: 
         <div className="p-6 flex flex-col gap-6">
             {isResearchInterrupt && (
                 <div className="flex flex-col gap-2">
-                    <h4 className="font-semibold text-slate-700 flex items-center gap-2">
-                       <FileText size={18} className="text-blue-500"/> Generated Prompt for External LLM
-                    </h4>
+                    <div className="flex items-center justify-between gap-3">
+                      <h4 className="font-semibold text-slate-700 flex items-center gap-2">
+                         <FileText size={18} className="text-blue-500"/> Generated Prompt for External LLM
+                      </h4>
+                      <button
+                        onClick={handleCopyPrompt}
+                        disabled={!promptContent.trim()}
+                        className="text-xs font-semibold px-3 py-2 rounded border border-slate-300 bg-white hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {copyLabel}
+                      </button>
+                    </div>
                     <div className="bg-slate-900 text-slate-300 p-4 rounded-lg text-sm font-mono whitespace-pre-wrap max-h-60 overflow-y-auto">
                         {promptContent || <span className="opacity-50 flex items-center gap-2"><Loader size={14} className="animate-spin"/> Loading...</span>}
                     </div>
@@ -122,6 +149,11 @@ export default function HumanInputPanel({ weekId, pipelineState, onSubmitted }: 
             
             <div className="flex flex-col gap-2">
                  <h4 className="font-semibold text-slate-700">Paste or Upload Results</h4>
+                 {submitNote && (
+                   <div className="text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 rounded px-3 py-2">
+                     {submitNote}
+                   </div>
+                 )}
                  <div 
                     className={`relative border-2 border-dashed rounded-lg p-2 transition ${dragActive ? 'border-blue-500 bg-blue-50' : 'border-slate-300 bg-slate-50'}`}
                     onDragEnter={onDrag}

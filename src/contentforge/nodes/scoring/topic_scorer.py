@@ -9,6 +9,12 @@ from contentforge.core.state import Topic
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
+def _topic_get(topic: Topic | dict[str, Any], key: str, default: Any = None) -> Any:
+    if isinstance(topic, dict):
+        return topic.get(key, default)
+    return getattr(topic, key, default)
+
+
 class TopicScorer(BaseNode):
     """Scores generated topics based on virality and brand fit.
 
@@ -34,10 +40,10 @@ class TopicScorer(BaseNode):
         # Prepare payload for LLM (just id, title, summary, key points to save tokens)
         payload = [
             {
-                "id": t.id,
-                "title": t.title,
-                "summary": t.summary,
-                "key_points": t.key_points,
+                "id": _topic_get(t, "id", ""),
+                "title": _topic_get(t, "title", ""),
+                "summary": _topic_get(t, "summary", ""),
+                "key_points": _topic_get(t, "key_points", []),
             }
             for t in topic_bank
         ]
@@ -69,10 +75,19 @@ class TopicScorer(BaseNode):
         
         updated_bank = []
         for topic in topic_bank:
-            score_info = score_map.get(topic.id)
+            topic_id = _topic_get(topic, "id")
+            score_info = score_map.get(topic_id)
             if score_info:
-                topic.score = float(score_info.get("score", topic.score))
-                topic.scoring_reasoning = score_info.get("reasoning", "")
+                score = float(score_info.get("score", _topic_get(topic, "score", 0.0)))
+                reasoning = score_info.get("reasoning", "")
+            else:
+                score = float(_topic_get(topic, "score", 0.0))
+                reasoning = _topic_get(topic, "scoring_reasoning", "")
+
+            if isinstance(topic, dict):
+                topic = Topic(**topic)
+            topic.score = score
+            topic.scoring_reasoning = reasoning
             updated_bank.append(topic)
             
         # Sort by score descending

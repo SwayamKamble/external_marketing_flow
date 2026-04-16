@@ -2,13 +2,14 @@
 
 import sys
 import os
+import time
 sys.path.append(os.path.abspath("src"))
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.dependencies import init_system, close_system
+from api.dependencies import init_system, close_system, get_logger
 from api.routes import pipeline, memory, events, carousel
 
 
@@ -37,6 +38,27 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def log_api_calls(request: Request, call_next):
+    start = time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    try:
+        logger = get_logger()
+        logger.event(
+            "api.request",
+            {
+                "method": request.method,
+                "path": request.url.path,
+                "status_code": response.status_code,
+                "duration_ms": round(duration_ms, 1),
+            },
+        )
+    except Exception:
+        pass
+    return response
 
 # Include Routers
 app.include_router(pipeline.router)
