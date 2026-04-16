@@ -1,0 +1,64 @@
+# ── ContentForge LLM Configuration ──
+# Every node maps to a specific provider/model for cost optimization.
+
+providers:
+  azure_openai:
+    base_url: "${LLM_BASE_URL}"
+    api_key: "${LLM_API_KEY}"
+    models:
+      gpt-5-chat:
+        description: "Primary creative model — captions, themes, scripts"
+        max_tokens: 4096
+        temperature: 0.7
+      Kimi-K2.5:
+        description: "Alternative model — reasoning-heavy tasks"
+        max_tokens: 4096
+        temperature: 0.7
+
+# Default provider and model
+default_provider: "azure_openai"
+default_model: "gpt-5-chat"
+
+# ── Per-node model mapping ──
+# Override which model each node uses for cost optimization.
+# Nodes not listed here use the default model.
+node_model_mapping:
+  # Research Phase — can use cheaper/faster model
+  research_prompt_generator: "gpt-5-chat"
+  research_parser: "Kimi-K2.5"
+
+  # Scoring — needs strong judgment
+  topic_scorer: "gpt-5-chat"
+  calendar_planner: "gpt-5-chat"
+
+  # Deep Research
+  deep_research_prompt_generator: "gpt-5-chat"
+
+  # Content Creation — needs creativity
+  content_router: "Kimi-K2.5"          # fast routing decision
+  theme_designer: "gpt-5-chat"
+  caption_writer: "gpt-5-chat"
+  image_prompt_engineer: "gpt-5-chat"
+  slide_content_writer: "gpt-5-chat"
+  react_code_generator: "gpt-5-chat"
+  hook_writer: "gpt-5-chat"
+  script_writer: "gpt-5-chat"
+  storyboard_generator: "gpt-5-chat"
+  music_suggester: "Kimi-K2.5"
+  headline_writer: "gpt-5-chat"
+
+  # Editing — routing is fast, actual edit needs quality
+  edit_router: "Kimi-K2.5"            # fast intent classification
+  chat_edit_agent: "gpt-5-chat"
+  diff_presenter: "Kimi-K2.5"
+
+  # Export — mostly rule-based
+  validator: "Kimi-K2.5"
+  week_summary_generator: "gpt-5-chat"
+
+# ── Retry Configuration ──
+retry:
+  max_retries: 3
+  base_delay_seconds: 1.0
+  max_delay_seconds: 30.0
+  exponential_base: 2

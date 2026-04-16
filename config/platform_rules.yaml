@@ -1,0 +1,60 @@
+# ── Platform-Specific Rules ──
+# Character limits, hashtag counts, tone, and CTA styles per platform.
+
+platforms:
+  instagram:
+    display_name: "Instagram"
+    caption_char_limit: 2200
+    hashtag_range: [20, 30]
+    tone: "Visual-first, storytelling, emoji-friendly. Mix educational + relatable."
+    cta_style: "Save this post 🔖 / Share with a friend / Drop a 🔥 in comments"
+    content_types: ["carousel", "single_image", "reel"]
+    optimal_posting_times: ["09:00", "12:00", "17:00"]
+    notes: "First line is the hook — must grab attention. Line breaks matter."
+
+  linkedin:
+    display_name: "LinkedIn"
+    caption_char_limit: 3000
+    hashtag_range: [3, 5]
+    tone: "Professional yet approachable. Thought leadership. Data-backed insights."
+    cta_style: "What do you think? / Agree or disagree? / Follow for more insights"
+    content_types: ["single_image", "carousel", "article"]
+    optimal_posting_times: ["08:00", "10:00", "17:00"]
+    notes: "Hook in first 2 lines (before 'see more'). Use line breaks generously."
+
+  x:
+    display_name: "X (Twitter)"
+    caption_char_limit: 280
+    hashtag_range: [1, 3]
+    tone: "Concise, punchy, opinionated. Hot takes welcome. Conversational."
+    cta_style: "RT if you agree / Thread 🧵 / Thoughts? ↓"
+    content_types: ["single_image", "thread"]
+    optimal_posting_times: ["09:00", "12:00", "18:00"]
+    notes: "Every character counts. Use contractions. No filler words."
+
+  threads:
+    display_name: "Threads"
+    caption_char_limit: 500
+    hashtag_range: [0, 3]
+    tone: "Casual, authentic, conversational. Like talking to a smart friend."
+    cta_style: "What's your take? / Would you try this? / Drop your experience below"
+    content_types: ["text", "single_image"]
+    optimal_posting_times: ["10:00", "13:00", "19:00"]
+    notes: "Keep it real. Less polished, more genuine. Short paragraphs."
+
+# ── Global Caption Rules ──
+global_rules:
+  never_use:
+    - "In this digital age"
+    - "In today's fast-paced world"
+    - "Buckle up"
+    - "Game-changer"
+    - "Dive in"
+    - "Without further ado"
+  always_include:
+    - "A clear CTA"
+    - "At least one emoji (platform-appropriate)"
+    - "A hook in the first line"
+  a_b_variants:
+    variant_a: "Story-telling approach — start with a hook/anecdote"
+    variant_b: "Direct value approach — start with the key insight"

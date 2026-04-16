@@ -1,0 +1,66 @@
+# ── Weekly Content Mix Framework ──
+# Defines the default content format rotation for a 7-day week.
+# Can be overridden by the calendar_planner based on topic scoring.
+
+weekly_framework:
+  monday:
+    format: "carousel"
+    intent: "savable"
+    description: "Educational deep-dive — optimized for saves and shares"
+
+  tuesday:
+    format: "single_image"
+    intent: "shareable"
+    description: "Quick insight or hot take with eye-catching visual"
+
+  wednesday:
+    format: "reel"
+    intent: "reach"
+    description: "Short-form video for maximum reach and discoverability"
+
+  thursday:
+    format: "carousel"
+    intent: "savable"
+    description: "How-to or tutorial — practical, step-by-step value"
+
+  friday:
+    format: "news_post"
+    intent: "timely"
+    description: "Latest AI/tech news with hot take and analysis"
+
+  saturday:
+    format: "single_image"
+    intent: "engagement"
+    description: "Debate or opinion piece — drives comments and engagement"
+
+  sunday:
+    format: "reel"
+    intent: "reach"
+    description: "Recap or behind-the-scenes — lighter, personal tone"
+
+# ── Content Format Specs ──
+format_specs:
+  carousel:
+    min_slides: 4
+    max_slides: 10
+    preferred_slides: 6
+    cover_requirements: "Hook title + visual. No body text on cover."
+    cta_slide: true
+    render_size: "1080x1350"
+
+  single_image:
+    aspect_ratio: "1:1"
+    render_size: "1080x1080"
+    text_overlay: "optional"
+
+  reel:
+    duration_seconds: [15, 60]
+    preferred_duration: 30
+    hook_duration: 3
+    aspect_ratio: "9:16"
+    render_size: "1080x1920"
+
+  news_post:
+    freshness: "within 48 hours"
+    requires_source: true
+    format: "single_image"

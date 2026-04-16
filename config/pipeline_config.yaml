@@ -1,0 +1,47 @@
+# ── Pipeline Configuration ──
+# Timeouts, retries, feature flags, and operational settings.
+
+# ── Timeouts (seconds) ──
+timeouts:
+  node_execution: 120         # Max time for any single node
+  llm_call: 60                # Max time for a single LLM API call
+  file_write: 10              # Max time for file I/O
+  pipeline_total: 3600        # Max time for full pipeline run (1 hour)
+
+# ── Retry Policy ──
+retries:
+  max_attempts: 3
+  backoff_base: 2.0           # Exponential backoff base
+  initial_delay: 1.0          # First retry delay (seconds)
+  max_delay: 30.0             # Max retry delay cap
+
+# ── Circuit Breaker ──
+circuit_breaker:
+  failure_threshold: 5        # Consecutive failures before opening
+  recovery_time: 60.0         # Seconds before half-open test
+  enabled: true
+
+# ── Logging ──
+logging:
+  level: "DEBUG"
+  log_llm_inputs: true        # Log full LLM input (careful with costs in production)
+  log_llm_outputs: true       # Log full LLM output
+  log_to_file: true
+  log_to_console: true
+  max_log_file_size_mb: 50
+
+# ── Feature Flags ──
+features:
+  langsmith_tracing: true     # Enable LangSmith auto-tracing
+  auto_retry_on_validation: true  # Auto-retry if caption exceeds char limit
+  parallel_caption_generation: true  # Fan-out caption generation
+  file_memory_sqlite_index: true    # Index files in SQLite for search
+  chat_edit_enabled: true
+  carousel_render_enabled: false    # Enable when renderer is set up
+
+# ── Content Defaults ──
+content:
+  caption_variants_per_platform: 2  # A/B variants
+  platforms: ["instagram", "linkedin", "x", "threads"]
+  research_prompt_count: 4          # Number of research prompts to generate
+  max_topics_per_week: 25           # Cap on parsed topics
