@@ -1,3 +1,13 @@
+---
+title: Creative Manager
+emoji: 🚀
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # ContentForge — AI Marketing Content Pipeline
 
 An event-driven, agentic content marketing pipeline built on LangGraph that automates the research → planning → creation workflow for AI/tech social media content.
