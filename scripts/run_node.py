@@ -26,9 +26,11 @@ console = Console()
 
 def get_node_registry() -> dict:
     """Get all registered nodes. Populated as nodes are built."""
-    # This will be populated in Phase 2 when nodes are implemented.
-    # For now, return empty to test the infrastructure.
-    return {}
+    from contentforge.nodes.content.caption_writer import CaptionWriter
+    
+    return {
+        "caption_writer": CaptionWriter
+    }
 
 
 def load_input(input_path: str) -> dict:
@@ -85,7 +87,7 @@ async def run_node(node_name: str, input_data: dict, week_id: str = "") -> dict:
     registry = get_node_registry()
     if node_name not in registry:
         console.print(f"[red]Error: Node '{node_name}' not found.[/red]")
-        console.print(f"Available nodes: {', '.join(registry.keys()) or '(none yet — implement nodes in Phase 2)'}")
+        console.print(f"Available nodes: {', '.join(registry.keys()) or '(none yet - implement nodes in Phase 2)'}")
         sys.exit(1)
 
     node_class = registry[node_name]

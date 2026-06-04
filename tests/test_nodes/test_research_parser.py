@@ -69,3 +69,33 @@ async def test_research_parser_empty_input():
     result = await node.process({"raw_research": []}, context)
     assert result == {"topic_bank": []}
     context.logger.error.assert_called_once_with("research_parser", "No raw research provided to parse.")
+
+
+@pytest.mark.asyncio
+async def test_research_parser_direct_json_preserves_research_metadata():
+    node = ResearchParser()
+    context = MagicMock(spec=NodeContext)
+    context.week_id = "test_week"
+    context.topic_id = ""
+    context.logger = MagicMock()
+    context.memory = MagicMock()
+
+    raw_items = [
+        {
+            "date": "2026-05-22",
+            "title": "New AI Tool",
+            "description": "A useful new AI tool launched for builders.",
+            "content_type": "post",
+            "platform": "instagram",
+            "source_url": "https://example.com/tool",
+            "why_it_matters": "It gives creators a practical workflow to test.",
+        }
+    ]
+
+    result = await node.process({"raw_research": [json.dumps(raw_items)]}, context)
+
+    topic = result["topic_bank"][0]
+    assert topic.date_of_report == "2026-05-22"
+    assert topic.source == "https://example.com/tool"
+    assert topic.suggested_format == ContentFormat.SINGLE_IMAGE
+    assert topic.suggested_angle == "It gives creators a practical workflow to test."

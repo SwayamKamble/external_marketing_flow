@@ -26,7 +26,7 @@ class ContentAggregator(BaseNode):
         content_dict = input_data.get("content", {})
         
         if not topic_id or topic_id not in content_dict:
-            return {"pipeline_status": "done"}
+            return {"pipeline_status": "export"}
 
         tc = content_dict[topic_id]
 
@@ -53,5 +53,5 @@ class ContentAggregator(BaseNode):
         return {
             "content": updated_content,
             "final_export": export_payload,
-            "pipeline_status": "packaging",
+            "pipeline_status": "export",
         }

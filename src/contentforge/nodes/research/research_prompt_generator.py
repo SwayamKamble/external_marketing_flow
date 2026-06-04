@@ -21,35 +21,50 @@ class ResearchPromptGenerator(BaseNode):
     description = "Generates prompts for gathering initial raw research."
 
     async def process(self, input_data: dict[str, Any], context: NodeContext) -> dict[str, Any]:
-        """Generate research prompts via LLM."""
-        # Load the system prompt
-        system_prompt, config = self.load_prompt(context)
+        """Generate research prompts instantly without an LLM call."""
+        
+        brand_dna = input_data.get("brand_context", {}).get("brand_dna", "AI and Tech audience")
+        content_pillars = input_data.get("brand_context", {}).get("content_pillars", "AI News, Tutorials, Opinions")
 
-        # Call the LLM (formatting output as JSON explicitly via prompt format)
-        result = await self.call_llm(
-            context=context,
-            system_prompt=system_prompt,
-            user_message="Generate the weekly research prompts based on our brand context.",
-            response_format={"type": "json_object"},
-            # Use overrides from prompt file if present
-            model=config.get("model"),
-            temperature=config.get("temperature"),
-            max_tokens=config.get("max_tokens", 4096),
+        output_contract = (
+            "For each item, output a JSON array where each object has: "
+            "\"date\" (YYYY-MM-DD of report), \"title\" (max 8 words), "
+            "\"description\" (2-3 specific sentences), \"content_type\" "
+            "(choose from: reel, carousel, post, animated_post), "
+            "\"platform\": \"instagram\", \"source_url\", and \"why_it_matters\". "
+            "CRITICAL RESPONSE RULES: return ONLY a JSON array; do not ask follow-up questions; "
+            "do not offer options; do not add explanations. "
+            "If live web browsing is unavailable, still return 10 best-effort candidate items in the same JSON schema, "
+            "set \"source_url\": \"\", and keep \"why_it_matters\" concrete and useful."
         )
 
-        if not result.success:
-            raise RuntimeError(f"LLM call failed: {result.error}")
-
-        # Parse JSON
-        try:
-            parsed = json.loads(result.content)
-            prompts = parsed.get("prompts", [])
-            if not isinstance(prompts, list):
-                prompts = [str(p) for p in prompts]
-        except json.JSONDecodeError as e:
-            if context.logger:
-                context.logger.error(self.node_name, f"JSON parse block: {e}")
-            raise ValueError(f"Failed to parse LLM output as JSON:\n{result.content}")
+        prompts = [
+            (
+                "You are an expert AI researcher. Search the web for 10 distinct, high-signal AI "
+                f"developments from the last 7 days. Focus on topics relevant to this audience: {brand_dna}. "
+                "Cover product launches, model releases, funding/acquisitions, policy changes, open-source "
+                "breakthroughs, and creator/developer trends. Do not merge separate stories unless they are "
+                f"truly the same event. {output_contract}"
+            ),
+            (
+                "You are an expert AI tools researcher. Search the web for 10 new or meaningfully updated AI "
+                f"tools, workflows, libraries, or tutorials from the last 7 days. Focus on these content pillars: {content_pillars}. "
+                "Prioritize tools a developer, founder, marketer, freelancer, or AI learner could actually try. "
+                f"{output_contract}"
+            ),
+            (
+                "You are an expert AI strategy researcher. Search the web for 10 practical AI tactics, automation "
+                "workflows, agentic AI examples, coding workflows, or business use cases from the last 7 days. "
+                "Prioritize examples with clear implementation value for Indian builders, startups, and creators. "
+                f"{output_contract}"
+            ),
+            (
+                "You are an expert tech discourse researcher. Search the web for 10 trending opinions, debates, "
+                "controversies, benchmarks, failures, or contrarian takes in AI/tech from the last 7 days. "
+                "Prioritize topics that can become sharp Instagram reels, carousels, or single-image opinion posts. "
+                f"{output_contract}"
+            ),
+        ]
 
         # Save to file memory
         self.save_artifact(

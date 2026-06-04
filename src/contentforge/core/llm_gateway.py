@@ -69,7 +69,7 @@ class LLMGateway:
 
         if not base_url or not api_key or api_key == "${LLM_API_KEY}":
             console.print(
-                "[yellow]⚠ LLM Gateway: No API key configured. "
+                "[yellow]WARNING: LLM Gateway: No API key configured. "
                 "Set LLM_API_KEY in .env file.[/yellow]"
             )
 
@@ -165,7 +165,7 @@ class LLMGateway:
                         self._max_delay,
                     )
                     console.print(
-                        f"[yellow]⚠ LLM call failed (attempt {attempt + 1}/{self._max_retries}): "
+                        f"[yellow]WARNING: LLM call failed (attempt {attempt + 1}/{self._max_retries}): "
                         f"{last_error}. Retrying in {delay:.1f}s...[/yellow]"
                     )
                     await asyncio.sleep(delay)
@@ -237,7 +237,7 @@ class LLMGateway:
                 if attempt < self._max_retries - 1:
                     delay = min(self._base_delay * (2 ** attempt), self._max_delay)
                     console.print(
-                        f"[yellow]⚠ LLM call failed (attempt {attempt + 1}): "
+                        f"[yellow]WARNING: LLM call failed (attempt {attempt + 1}): "
                         f"{last_error}. Retrying in {delay:.1f}s...[/yellow]"
                     )
                     time.sleep(delay)

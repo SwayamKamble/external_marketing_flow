@@ -24,22 +24,50 @@ console = Console()
 
 
 def build_event_bus():
-    """Build the event bus with all registered events.
-
-    This will be fully populated in Phase 2.
-    """
+    """Build the event bus with all registered events."""
     from contentforge.core.events import EventBus
     from contentforge.core.logger import PipelineLogger
     from contentforge.utils.platform_helpers import get_week_id
+    from contentforge.core.config_loader import ConfigLoader
+    from contentforge.core.file_memory import FileMemory
+    from contentforge.core.llm_gateway import LLMGateway
+    from contentforge.core.prompt_loader import PromptLoader
+    from contentforge.nodes._base import NodeContext
+    from contentforge.nodes.research.brand_context_loader import BrandContextLoader
+    from contentforge.nodes.research.research_prompt_generator import ResearchPromptGenerator
 
-    logger = PipelineLogger(log_dir="./data/logs", week_id=get_week_id())
+    week_id = get_week_id()
+    logger = PipelineLogger(log_dir="./data/logs", week_id=week_id)
+    config = ConfigLoader(config_dir="./config")
+    memory = FileMemory(data_dir="./data")
+    llm = LLMGateway(config=config)
+    prompts = PromptLoader(prompts_dir="./prompts")
+
+    context = NodeContext(
+        week_id=week_id,
+        config=config,
+        memory=memory,
+        llm=llm,
+        logger=logger,
+        prompts=prompts,
+        brand_context=memory.get_brand_context()
+    )
+
     bus = EventBus(logger=logger)
 
-    # Events will be registered here in Phase 2
-    # bus.on("pipeline.start", ["brand_context_loader", "research_prompt_generator"])
-    # bus.on("research.submit", ["research_parser"])
-    # bus.on("content.create", ["content_router"])
-    # ...
+    node1 = BrandContextLoader()
+    node2 = ResearchPromptGenerator()
+
+    async def run_node1(data):
+        return await node1.run(data, context)
+
+    async def run_node2(data):
+        return await node2.run(data, context)
+
+    bus.register_node("brand_context_loader", run_node1, phase="research")
+    bus.register_node("research_prompt_generator", run_node2, phase="research")
+
+    bus.on("pipeline.start", ["brand_context_loader", "research_prompt_generator"])
 
     return bus
 
@@ -58,11 +86,11 @@ async def fire_event(event_name: str, payload: dict) -> None:
     result = await bus.fire(event_name, payload)
 
     if result.success:
-        console.print(f"[green]✓ Event handled successfully ({result.duration_ms:.0f}ms)[/green]")
+        console.print(f"[green]OK Event handled successfully ({result.duration_ms:.0f}ms)[/green]")
         for r in result.results:
             console.print(f"  Result: {json.dumps(r, indent=2, default=str)[:500]}")
     else:
-        console.print(f"[red]✗ Event failed[/red]")
+        console.print(f"[red]FAIL Event failed[/red]")
         for err in result.errors:
             console.print(f"  [red]Error: {err}[/red]")
 

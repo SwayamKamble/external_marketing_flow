@@ -1,93 +1,90 @@
-"""Node to generate visual theme and aesthetic guidelines."""
+"""Node to apply per-topic visual theme from deep research."""
 
 from __future__ import annotations
 
 import json
 from typing import Any
 
-from contentforge.core.state import Theme
+from contentforge.core.state import Theme, enum_value
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
-def _topic_get(topic: Any, key: str, default: Any = None) -> Any:
-    if isinstance(topic, dict):
-        return topic.get(key, default)
-    return getattr(topic, key, default)
-
-
 class ThemeDesigner(BaseNode):
-    """Selects colors, fonts, and visual themes for a topic.
-
-    Uses the topic's content format and the overarching brand style guide
-    to generate a specific JSON aesthetic theme to be used by React renderers
-    or image generation prompts.
-    """
+    """Locks theme to deep-research `content_spec.theme` for each topic."""
 
     node_name = "theme_designer"
     category = "content"
-    description = "Generates specific thematic guidelines for the content output."
+    description = "Applies deep-research theme without fallback replacement."
 
     async def process(self, input_data: dict[str, Any], context: NodeContext) -> dict[str, Any]:
         content_dict = input_data.get("content", {})
         topic_id = input_data.get("pending_topic_id")
-        
         if not topic_id or topic_id not in content_dict:
             return {}
 
         tc = content_dict[topic_id]
-        
-        # We only need a theme if we haven't generated one yet or if requested
-        if tc.theme and tc.theme.primary_color: # Hacky check for non-empty theme
+        deep_res = input_data.get("deep_research", {}).get(topic_id)
+        deep_theme = {}
+        if deep_res:
+            if isinstance(deep_res, dict):
+                deep_theme = (deep_res.get("content_spec") or {}).get("theme") or {}
+            else:
+                deep_theme = (getattr(deep_res, "content_spec", None) or {}).get("theme") or {}
+
+        required = ("primary_color", "secondary_color", "accent_color", "background_color", "text_color", "font_heading", "font_body")
+        missing = [field for field in required if not str(deep_theme.get(field) or "").strip()]
+        if missing:
+            if context.logger:
+                context.logger.error(
+                    self.node_name,
+                    f"Missing deep-research theme fields for {topic_id}: {', '.join(missing)}. Keeping theme unchanged.",
+                )
             return {}
 
-        # Look up the topic info for context
-        topic_bank = input_data.get("topic_bank", [])
-        topic = next((t for t in topic_bank if _topic_get(t, "id") == topic_id), None)
-        
-        if not topic:
-            return {}
-
-        system_prompt, config = self.load_prompt(context)
-        
-        # Call LLM
-        result = await self.call_llm(
-            context=context,
-            system_prompt=system_prompt,
-            user_message=f"Design a theme for this topic: '{_topic_get(topic, 'title', '')}'\nType: {tc.content_format.value}\nAngle: {_topic_get(topic, 'suggested_angle', '')}",
-            response_format={"type": "json_object"},
-            model=config.get("model", "gpt-5-chat"),
-            temperature=config.get("temperature", 0.6), # Creative
+        tc.theme = Theme(
+            primary_color=str(deep_theme.get("primary_color") or "").strip(),
+            secondary_color=str(deep_theme.get("secondary_color") or "").strip(),
+            accent_color=str(deep_theme.get("accent_color") or "").strip(),
+            background_color=str(deep_theme.get("background_color") or "").strip(),
+            text_color=str(deep_theme.get("text_color") or "").strip(),
+            font_heading=str(deep_theme.get("font_heading") or "").strip(),
+            font_body=str(deep_theme.get("font_body") or "").strip(),
+            style_notes=str(deep_theme.get("style_notes") or "").strip(),
+            mood=str(deep_theme.get("mood") or "").strip(),
         )
 
-        if result.success:
-            try:
-                parsed = json.loads(result.content)
-                tc.theme = Theme(
-                    primary_color=parsed.get("primary_color", ""),
-                    secondary_color=parsed.get("secondary_color", ""),
-                    accent_color=parsed.get("accent_color", ""),
-                    background_color=parsed.get("background_color", ""),
-                    text_color=parsed.get("text_color", ""),
-                    font_heading=parsed.get("font_heading", ""),
-                    font_body=parsed.get("font_body", ""),
-                    style_notes=parsed.get("style_notes", ""),
-                    mood=parsed.get("mood", "")
-                )
-                
-                # Save artifact
-                self.save_artifact(
-                   context=context,
-                   phase="05_content",
-                   topic_id=topic_id,
-                   filename="theme.md",
-                   content=f"# Theme definition\n\nMood: {tc.theme.mood}\n\nColors:\n- BG: {tc.theme.background_color}\n- Text: {tc.theme.text_color}\n- Primary: {tc.theme.primary_color}\n- Accent: {tc.theme.accent_color}\n\nNotes: {tc.theme.style_notes}"
-                )
-            except Exception as e:
-                if context.logger:
-                    context.logger.error(self.node_name, f"Theme parsing failed: {e}")
+        self.save_artifact(
+            context=context,
+            phase="05_content",
+            topic_id=topic_id,
+            filename="theme.md",
+            content=(
+                "# Theme definition\n\n"
+                f"Mood: {tc.theme.mood}\n\n"
+                "Colors:\n"
+                f"- BG: {tc.theme.background_color}\n"
+                f"- Text: {tc.theme.text_color}\n"
+                f"- Primary: {tc.theme.primary_color}\n"
+                f"- Accent: {tc.theme.accent_color}\n\n"
+                "Fonts:\n"
+                f"- Heading: {tc.theme.font_heading}\n"
+                f"- Body: {tc.theme.font_body}\n\n"
+                f"Notes: {tc.theme.style_notes}"
+            ),
+        )
+        self.save_artifact(
+            context=context,
+            phase="05_content",
+            topic_id=topic_id,
+            filename="theme.json",
+            content=json.dumps(tc.theme.model_dump(), indent=2),
+        )
 
-        # Update the specific topic content mapping
         updated_content = dict(content_dict)
         updated_content[topic_id] = tc
-        
+        if context.logger:
+            context.logger.event(
+                "theme_designer.deep_research_locked",
+                {"topic_id": topic_id, "format": enum_value(tc.content_format)},
+            )
         return {"content": updated_content}

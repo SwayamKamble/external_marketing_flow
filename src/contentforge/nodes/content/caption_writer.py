@@ -6,7 +6,7 @@ import asyncio
 import json
 from typing import Any
 
-from contentforge.core.state import Caption, Platform, ContentStatus
+from contentforge.core.state import Caption, Platform, ContentStatus, enum_value
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
@@ -87,7 +87,7 @@ class CaptionWriter(BaseNode):
         
         ctx_lines = [f"Title: {_topic_get(topic, 'title', 'Unknown')}" if topic else "Title: Unknown"]
         if topic:
-            ctx_lines.append(f"Format: {tc.content_format.value}")
+            ctx_lines.append(f"Format: {enum_value(tc.content_format)}")
             ctx_lines.append(f"Angle: {_topic_get(topic, 'suggested_angle', '')}")
         if deep_res:
             ctx_lines.append(f"Facts/Details:\n{deep_res.result}")
@@ -121,6 +121,81 @@ class CaptionWriter(BaseNode):
                 if cap.hashtags:
                     md_content += f"**Hashtags:** {' '.join(cap.hashtags)}\n\n"
                 md_content += "---\n\n"
+
+            if not tc.captions[p.value]:
+                title_val = ctx_lines[0].replace('Title: ', '')
+                # Define platform specific fallback variants
+                fallbacks = []
+                if p == Platform.INSTAGRAM:
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v1",
+                        caption_text=f"Ever wondered about the real story behind {title_val}? Let's break down what's actually happening under the hood and why it matters.",
+                        cta="What's your take on this? Let me know in the comments! 👇",
+                        hashtags=["#AI", "#Tech", "#Innovation", "#ArtificialIntelligence", "#MachineLearning", "#TechNews", "#FutureOfTech", "#AITrends", "#TechCommunity", "#SoftwareEngineering"],
+                    ))
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v2",
+                        caption_text=f"Here is everything you need to know about {title_val}. We cover the quick context, key implications, and your main takeaway.",
+                        cta="Save this post for later so you don't forget! 📌",
+                        hashtags=["#AI", "#Tech", "#Innovation", "#ArtificialIntelligence", "#MachineLearning", "#TechNews", "#FutureOfTech", "#AITrends", "#TechCommunity", "#SoftwareEngineering"],
+                    ))
+                elif p == Platform.LINKEDIN:
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v1",
+                        caption_text=f"The release of {title_val} marks a significant shift in the landscape. Here is my perspective on how this changes the equation for builders and leaders.",
+                        cta="How is your team preparing for this? Let's discuss in the comments.",
+                        hashtags=["#AI", "#Technology", "#Innovation", "#Business", "#FutureOfWork"],
+                    ))
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v2",
+                        caption_text=f"{title_val} is here. Here are the key takeaways you need to know to stay ahead of the curve and adapt your workflow.",
+                        cta="Follow for more industry analysis and updates.",
+                        hashtags=["#AI", "#TechInnovation", "#FutureOfWork", "#Productivity"],
+                    ))
+                elif p == Platform.X:
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v1",
+                        caption_text=f"Just looked into {title_val}. Here's the narrative that most people are missing, and why it matters for developers and builders.",
+                        cta="What do you think? 👇",
+                        hashtags=["#AI", "#Tech"],
+                    ))
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v2",
+                        caption_text=f"Quick breakdown of {title_val}: Context, implications, and what to expect next.",
+                        cta="Follow for more quick tech updates.",
+                        hashtags=["#AI"],
+                    ))
+                else:  # Threads / other
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v1",
+                        caption_text=f"Alright, let's talk about {title_val}. Here's a casual breakdown of what it actually means for us day-to-day.",
+                        cta="Let me know if you agree! Drop a reply.",
+                        hashtags=["#AI"],
+                    ))
+                    fallbacks.append(Caption(
+                        platform=p,
+                        variant="v2",
+                        caption_text=f"{title_val} just dropped. Here's a quick, no-nonsense look at why this is a big deal.",
+                        cta="Drop a reply with your thoughts.",
+                        hashtags=["#AI"],
+                    ))
+                
+                for fallback in fallbacks:
+                    tc.captions[p.value][fallback.variant] = fallback
+                    md_content += f"## {p.value.upper()} — Variant: {fallback.variant}\n"
+                    md_content += f"{fallback.caption_text}\n\n"
+                    if fallback.cta:
+                        md_content += f"**CTA:** {fallback.cta}\n\n"
+                    if fallback.hashtags:
+                        md_content += f"**Hashtags:** {' '.join(fallback.hashtags)}\n\n"
+                    md_content += "---\n\n"
 
         # Save artifact for human review
         self.save_artifact(

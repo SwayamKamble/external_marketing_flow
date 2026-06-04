@@ -52,3 +52,7 @@ htmlcov/
 *.gif
 
 
+.vercel
+data/
+frontend/.npm-cache/
+status.json

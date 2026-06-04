@@ -41,7 +41,7 @@ class PromptLoader:
 
         if not self.prompts_dir.exists():
             console.print(
-                f"[yellow]⚠ Prompts directory not found: {self.prompts_dir}. "
+                f"[yellow]WARNING: Prompts directory not found: {self.prompts_dir}. "
                 f"Creating it...[/yellow]"
             )
             self.prompts_dir.mkdir(parents=True, exist_ok=True)
@@ -66,7 +66,7 @@ class PromptLoader:
         full_path = self.prompts_dir / f"{prompt_path}.md"
 
         if not full_path.exists():
-            console.print(f"[yellow]⚠ Prompt not found: {full_path}[/yellow]")
+            console.print(f"[yellow]WARNING: Prompt not found: {full_path}[/yellow]")
             return "", {}
 
         # Load and parse the prompt file
@@ -87,7 +87,7 @@ class PromptLoader:
                 template = Template(raw_content)
                 rendered = template.render(**variables)
             except Exception as e:
-                console.print(f"[yellow]⚠ Template render error: {e}[/yellow]")
+                console.print(f"[yellow]WARNING: Template render error: {e}[/yellow]")
                 rendered = raw_content
 
         return rendered, config

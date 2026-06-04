@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 from contentforge.nodes._base import BaseNode, NodeContext
+from contentforge.core.state import enum_value
 
 
 def _topic_get(topic: Any, key: str, default: Any = None) -> Any:
@@ -37,7 +38,7 @@ class ImagePromptEngineer(BaseNode):
         
         # Only needed if there is no pre-existing visual and the style demands it.
         # Skip if format is carousel (we render in React) unless they explicitly want a cover graphic.
-        if tc.content_format.value not in ["single_image", "news_post", "carousel"]:
+        if enum_value(tc.content_format) not in ["single_image", "news_post", "carousel"]:
              return {}
 
         topic_bank = input_data.get("topic_bank", [])
@@ -81,6 +82,10 @@ class ImagePromptEngineer(BaseNode):
                 if context.logger:
                     context.logger.error(self.node_name, f"Image prompt parsing failed: {e}")
 
+        # Mark as draft so the pipeline progresses
+        from contentforge.core.state import ContentStatus
+        tc.status = ContentStatus.DRAFT
+        
         updated_content = dict(content_dict)
         updated_content[topic_id] = tc
         return {"content": updated_content}

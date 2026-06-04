@@ -134,7 +134,7 @@ class EventBus:
         node_names = self._handlers.get(event_name, [])
 
         if not node_names:
-            console.print(f"[yellow]⚠ No handlers registered for event: {event_name}[/yellow]")
+            console.print(f"[yellow]WARNING: No handlers registered for event: {event_name}[/yellow]")
             return EventResult(
                 event_name=event_name,
                 success=False,

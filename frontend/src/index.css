@@ -11,3 +11,14 @@
     color: var(--color-slate-900);
   }
 }
+
+/* ═══════════════════════════════════════════════════════
+   SLIDE THEME OVERRIDES
+   These use CSS custom properties + !important to
+   guarantee theme colors appear on slides, overriding
+   ALL Tailwind v4 utility/base/layer rules.
+   ═══════════════════════════════════════════════════════ */
+
+[data-theme-slide] * {
+  color: inherit;
+}

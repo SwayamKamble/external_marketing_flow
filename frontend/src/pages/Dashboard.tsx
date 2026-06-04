@@ -1,15 +1,19 @@
 import { useEffect, useState } from "react";
 import { connectWebSocket, startPipeline, getPipelineStatus } from "../services/api";
-import { Play, Activity, CheckCircle, Loader } from "lucide-react";
+import { Play, Activity, CheckCircle, Loader, AlertTriangle } from "lucide-react";
 import HumanInputPanel from "../components/HumanInputPanel";
 
-export default function Dashboard() {
+export default function Dashboard({ weekId, setWeekId }: { weekId: string; setWeekId: (v: string) => void }) {
   const [events, setEvents] = useState<any[]>([]);
   const [pipelineState, setPipelineState] = useState<any>(null);
-  const [weekId, setWeekId] = useState("2026-W16");
   const [isRunning, setIsRunning] = useState(false);
+  const [startError, setStartError] = useState<string | null>(null);
+  const [startProgress, setStartProgress] = useState<string | null>(null);
 
   useEffect(() => {
+    setPipelineState(null);
+    setStartError(null);
+    setStartProgress(null);
     // Check initial status
     getPipelineStatus(weekId).then((data) => {
       setPipelineState(data);
@@ -21,7 +25,7 @@ export default function Dashboard() {
 
     // Connect to WebSocket tail
     const ws = connectWebSocket((newMsg) => {
-      setEvents((prev) => [...prev, newMsg].slice(-50)); // Keep last 50 events
+      setEvents((prev) => [...prev, newMsg].slice(-50));
     });
 
     return () => {
@@ -35,6 +39,17 @@ export default function Dashboard() {
   const isResearchInputAction = ["paste_research", "paste_deep_research"].includes(actionType) || isResearchStage;
   const selectedTopics = pipelineState?.state?.selected_topics || [];
   const topicQueue = pipelineState?.state?.topic_queue || [];
+  const topicBank = pipelineState?.state?.topic_bank || [];
+  const weeklyPlan = pipelineState?.state?.weekly_plan || [];
+  const titleById = new Map<string, string>([
+    ...topicBank
+      .filter((t: any) => t?.id && t?.title)
+      .map((t: any) => [t.id, t.title]),
+    ...weeklyPlan
+      .filter((p: any) => p?.topic_id && p?.topic_title)
+      .map((p: any) => [p.topic_id, p.topic_title]),
+  ]);
+  const topicLabel = (topicId?: string | null) => (topicId ? (titleById.get(topicId) || topicId) : "None");
   const actionHints: Record<string, string> = {
     select_topics: "Select topics in Weekly Calendar, then continue.",
     paste_research: "Paste weekly research results in this panel.",
@@ -63,12 +78,19 @@ export default function Dashboard() {
 
   const handleStart = async () => {
     setIsRunning(true);
+    setStartError(null);
+    setStartProgress("Initializing pipeline for " + weekId + "...");
     try {
-      await startPipeline(weekId);
-      const state = await getPipelineStatus(weekId);
-      setPipelineState(state);
-    } catch (e) {
-      console.error(e);
+      setStartProgress("Calling API → loading brand context & generating research prompts (may take 10-20s)...");
+      const result = await startPipeline(weekId);
+      setStartProgress("Pipeline started! Loading state...");
+      setPipelineState(result);
+      setStartProgress(null);
+    } catch (e: any) {
+      console.error("Pipeline start error:", e);
+      const msg = e?.response?.data?.detail || e?.message || "Unknown error — check browser console (F12)";
+      setStartError("Pipeline start failed: " + msg);
+      setStartProgress(null);
     } finally {
       setIsRunning(false);
     }
@@ -95,10 +117,25 @@ export default function Dashboard() {
             className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded font-medium flex gap-2 items-center transition disabled:opacity-50"
           >
             {isRunning ? <Loader size={18} className="animate-spin" /> : <Play size={18} />}
-            Start Pipeline Run
+            {isRunning ? "Starting..." : "Start Pipeline Run"}
           </button>
         </div>
       </div>
+
+      {/* Live progress / error banners */}
+      {startProgress && (
+        <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 flex items-center gap-3 animate-pulse">
+          <Loader size={20} className="animate-spin text-blue-600" />
+          <span className="text-blue-800 font-medium">{startProgress}</span>
+        </div>
+      )}
+      {startError && (
+        <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-center gap-3">
+          <AlertTriangle size={20} className="text-red-600" />
+          <span className="text-red-800 font-medium">{startError}</span>
+          <button onClick={() => setStartError(null)} className="ml-auto text-red-500 hover:text-red-700 text-xs font-bold">DISMISS</button>
+        </div>
+      )}
 
       <div className="grid grid-cols-3 gap-6 items-start">
         {/* State Panel */}
@@ -114,7 +151,7 @@ export default function Dashboard() {
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Pending Topic</span>
-                <span className="font-mono text-xs">{pipelineState.pending_topic_id || "None"}</span>
+                <span className="text-xs">{topicLabel(pipelineState.pending_topic_id)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500">Topic Progress</span>
@@ -167,7 +204,7 @@ export default function Dashboard() {
                       &lt;{ev.event}&gt;
                     </span>
                     <span className="text-slate-400 truncate">
-                        {JSON.stringify(ev.data ?? {})}
+                        {ev.data ? Object.values(ev.data).filter(v => v !== null && v !== undefined).map(v => typeof v === 'object' ? '' : String(v)).filter(Boolean).join(' | ') || '' : ''}
                     </span>
                    </div>
                  );
@@ -187,9 +224,9 @@ export default function Dashboard() {
                     {selectedTopics.map((topicId: string, index: number) => (
                       <span
                         key={topicId}
-                        className={`px-3 py-1 rounded-full text-xs font-mono border ${pipelineState.pending_topic_id === topicId ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}
+                        className={`px-3 py-1 rounded-full text-xs border ${pipelineState.pending_topic_id === topicId ? "bg-amber-50 text-amber-700 border-amber-200" : "bg-slate-50 text-slate-600 border-slate-200"}`}
                       >
-                        {index + 1}. {topicId}
+                        {index + 1}. {topicLabel(topicId)}
                       </span>
                     ))}
                   </div>
@@ -198,9 +235,52 @@ export default function Dashboard() {
                 )}
                 {topicQueue.length > 0 && (
                   <div className="text-xs text-slate-500">
-                    Queue order: {topicQueue.join(" → ")}
+                    Queue order: {topicQueue.map((id: string) => topicLabel(id)).join(" -> ")}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Show processing indicator when AI is scoring/planning */}
+            {pipelineState && ["scoring", "planning"].includes(pipelineState.status) && !pipelineState.human_action_required && (
+              <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-5 flex items-center gap-4 animate-pulse">
+                <Loader size={24} className="animate-spin text-blue-600" />
+                <div>
+                  <h3 className="font-bold text-blue-900 text-lg">AI is Working...</h3>
+                  <p className="text-sm text-blue-700">
+                    {pipelineState.status === "scoring" ? "Scoring and ranking the extracted topics..." : "Building the 7-day weekly content plan..."}
+                    {" "}This takes 10-30 seconds.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Show processing indicator when AI is creating content */}
+            {pipelineState && pipelineState.status === "content_creation" && !pipelineState.human_action_required && (
+              <div className="bg-emerald-50 border-2 border-emerald-300 rounded-xl p-5 flex items-center gap-4 animate-pulse">
+                <Loader size={24} className="animate-spin text-emerald-600" />
+                <div>
+                  <h3 className="font-bold text-emerald-900 text-lg">Generating Content...</h3>
+                  <p className="text-sm text-emerald-700">
+                    The AI is creating slides, React code, themes, and captions. This may take 30-60 seconds.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {actionType === "select_topics" && (
+              <div className="bg-amber-50 border-2 border-amber-300 rounded-xl p-6 shadow-sm flex flex-col gap-3">
+                <h3 className="font-bold text-amber-900 text-lg">Action Required: Select Topics</h3>
+                <p className="text-sm text-amber-800">
+                  The weekly plan has been generated with {pipelineState?.state?.weekly_plan?.length || 0} topics.
+                  Go to the <strong>Weekly Calendar</strong> tab in the sidebar to view the plan, select topics, and click "Use Selected Topics &amp; Proceed".
+                </p>
+                <a
+                  href="/calendar"
+                  className="inline-flex items-center bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded font-semibold w-fit transition"
+                >
+                  Go to Weekly Calendar →
+                </a>
               </div>
             )}
 

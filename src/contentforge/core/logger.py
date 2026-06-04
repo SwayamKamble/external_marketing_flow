@@ -149,7 +149,7 @@ class PipelineLogger:
 
         self._append_log("llm_calls.log", data)
         self._logger.info(
-            f"[bold magenta]LLM[/] {node} → {model} "
+            f"[bold magenta]LLM[/] {node} -> {model} "
             f"({input_tokens}+{output_tokens} tokens, {latency_ms:.0f}ms)"
         )
 
@@ -212,7 +212,7 @@ class PipelineLogger:
 
         status_color = "green" if status == "success" else "red"
         self._logger.info(
-            f"[bold {status_color}]NODE END[/] {node} — {status} ({duration_ms:.0f}ms)"
+            f"[bold {status_color}]NODE END[/] {node} - {status} ({duration_ms:.0f}ms)"
         )
 
     # ── Level 4: Errors ──
@@ -246,7 +246,7 @@ class PipelineLogger:
         self._append_log("errors.log", data)
         self._logger.error(
             f"[bold red]ERROR[/] {node}: {error_message}"
-            + (f" → {action}" if action else "")
+            + (f" -> {action}" if action else "")
         )
 
     # ── Utility ──

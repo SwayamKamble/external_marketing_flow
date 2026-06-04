@@ -49,7 +49,7 @@ async def close_system():
     """Cleans up resources."""
     global _db
     if _db:
-        await _db.close()
+        _db.close()
 
 
 def get_logger() -> PipelineLogger:

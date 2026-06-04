@@ -147,7 +147,7 @@ def test_feedback_select_topics_success(mock_build_graph, _mock_get_context):
 
 @patch("api.routes.pipeline.get_node_context")
 @patch("api.routes.pipeline.build_pipeline_graph")
-def test_feedback_supply_deep_research_rejects_topic_mismatch(mock_build_graph, _mock_get_context):
+def test_feedback_supply_deep_research_autocorrects_topic_mismatch(mock_build_graph, _mock_get_context):
     state = _build_state_for_feedback()
     state["human_action_type"] = "paste_deep_research"
     mock_build_graph.return_value = _FakeGraph(state)
@@ -161,8 +161,10 @@ def test_feedback_supply_deep_research_rejects_topic_mismatch(mock_build_graph, 
         },
     )
 
-    assert response.status_code == 422
-    assert "does not match pending_topic_id" in response.json()["detail"]
+    assert response.status_code == 200
+    data = response.json()
+    assert data["state"]["raw_deep_research"]["topic_a"] == "External deep research text"
+    assert "topic_b" not in data["state"]["raw_deep_research"]
 
 
 @patch("api.routes.pipeline.get_node_context")
@@ -184,3 +186,81 @@ def test_feedback_supply_deep_research_success(mock_build_graph, _mock_get_conte
     assert response.status_code == 200
     data = response.json()
     assert data["state"]["raw_deep_research"]["topic_a"] == "External deep research text"
+
+
+@patch("api.routes.pipeline.get_node_context")
+@patch("api.routes.pipeline.build_pipeline_graph")
+def test_feedback_edit_sets_review_status(mock_build_graph, _mock_get_context):
+    state = _build_state_for_feedback()
+    state["pending_topic_id"] = "topic_a"
+    state["content"] = {
+        "topic_a": {
+            "topic_id": "topic_a",
+            "content_format": "carousel",
+            "status": "draft",
+            "captions": {},
+            "carousel_slides": []
+        }
+    }
+    
+    fake_graph = _FakeGraph(state)
+    mock_build_graph.return_value = fake_graph
+    
+    def get_state_mock(config):
+        return SimpleNamespace(
+            values=fake_graph._snapshot_values,
+            next=["edit_router"]
+        )
+    fake_graph.get_state = get_state_mock
+
+    response = client.post(
+        "/pipeline/2026-W16/feedback",
+        json={
+            "action": "edit",
+            "feedback": "Make caption funnier"
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "review"
+    assert data["state"]["human_feedback"] == "Make caption funnier"
+    assert data["state"]["pipeline_status"] == "review"
+
+
+@patch("api.routes.pipeline.get_node_context")
+@patch("api.routes.pipeline.build_pipeline_graph")
+def test_feedback_approve_sets_export_status(mock_build_graph, _mock_get_context):
+    state = _build_state_for_feedback()
+    state["pending_topic_id"] = "topic_a"
+    state["content"] = {
+        "topic_a": {
+            "topic_id": "topic_a",
+            "content_format": "carousel",
+            "status": "draft",
+            "captions": {},
+            "carousel_slides": []
+        }
+    }
+    
+    fake_graph = _FakeGraph(state)
+    mock_build_graph.return_value = fake_graph
+    
+    def get_state_mock(config):
+        return SimpleNamespace(
+            values=fake_graph._snapshot_values,
+            next=[]
+        )
+    fake_graph.get_state = get_state_mock
+
+    response = client.post(
+        "/pipeline/2026-W16/feedback",
+        json={
+            "action": "approve"
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["state"]["content"]["topic_a"]["status"] == "approved"
+    assert data["state"]["pipeline_status"] == "export"

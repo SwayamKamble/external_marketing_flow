@@ -1,16 +1,20 @@
-"""Main FastAPI application entry point."""
+"""Main FastAPI application entry point. Reloaded: 2026-05-28T18:05:00."""
 
 import sys
 import os
 import time
 sys.path.append(os.path.abspath("src"))
 
+for stream in (sys.stdout, sys.stderr):
+    if hasattr(stream, "reconfigure"):
+        stream.reconfigure(errors="replace")
+
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import init_system, close_system, get_logger
-from api.routes import pipeline, memory, events, carousel
+from api.routes import pipeline, memory, events, carousel, creative
 
 
 @asynccontextmanager
@@ -30,18 +34,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# Allow CORS for local frontend development (e.g. Next.js on 3000, Vite on 5173)
+# Allow CORS for local frontend development
+# Using wildcard for local dev to avoid port mismatch issues
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Include Routers
+app.include_router(pipeline.router)
+app.include_router(memory.router)
+app.include_router(events.router)
+app.include_router(carousel.router)
+app.include_router(creative.router)
+
 
 @app.middleware("http")
 async def log_api_calls(request: Request, call_next):
+    # Skip logging for OPTIONS preflight to avoid interference
+    if request.method == "OPTIONS":
+        return await call_next(request)
     start = time.perf_counter()
     response = await call_next(request)
     duration_ms = (time.perf_counter() - start) * 1000
@@ -59,12 +74,6 @@ async def log_api_calls(request: Request, call_next):
     except Exception:
         pass
     return response
-
-# Include Routers
-app.include_router(pipeline.router)
-app.include_router(memory.router)
-app.include_router(events.router)
-app.include_router(carousel.router)
 
 
 @app.get("/health")

@@ -17,6 +17,7 @@ class PipelineStatusResponse(BaseModel):
     human_action_required: bool = False
     human_action_type: Optional[str] = None
     state: dict[str, Any]
+    prompt_content: Optional[str] = None  # Embedded prompt content for research phases
 
 
 class FeedbackRequest(BaseModel):
@@ -51,6 +52,11 @@ class CarouselImage(BaseModel):
     """Single rendered carousel image payload."""
     filename: str
     data_url: str
+
+
+class CarouselRenderRequest(BaseModel):
+    """Payload to render carousel from updated/custom HTML."""
+    html_content: Optional[str] = Field(None, description="Optional custom HTML content to render.")
 
 
 class CarouselRenderResponse(BaseModel):

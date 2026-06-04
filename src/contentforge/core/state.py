@@ -73,6 +73,7 @@ class Topic(BaseModel):
     summary: str
     category: str = ""
     source: str = ""
+    date_of_report: str = ""  # YYYY-MM-DD date of the report/incident
     key_points: list[str] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     score: float = 0.0
@@ -109,6 +110,14 @@ class CarouselSlide(BaseModel):
     heading: str = ""
     body_text: str = ""
     visual_concept: str = ""
+    image_description: str = ""  # Description of image to place on slide
+    image_placement: str = ""  # Where: background, left, right, center, top, bottom
+    # Per-slide font overrides from deep research (Google Font names)
+    heading_font: str = ""
+    heading_font_weight: str = ""
+    body_font: str = ""
+    body_font_weight: str = ""
+    slide_theme: dict[str, Any] | None = None
 
 
 class Theme(BaseModel):
@@ -166,6 +175,7 @@ class DeepResearchItem(BaseModel):
     topic_id: str
     prompt: str = ""
     result: str = ""
+    content_spec: dict[str, Any] | None = None  # Rich spec: theme, caption, hook, slides, images
 
 
 class PipelineError(BaseModel):
@@ -223,7 +233,20 @@ class ContentForgeState(BaseModel):
     human_feedback: str = ""
     pending_topic_id: str | None = None
     carousel_status: str = ""
+    prompt_content: str = ""  # Current prompt for the user to copy
     errors: list[PipelineError] = Field(default_factory=list)
 
     class Config:
         use_enum_values = True
+
+
+def enum_value(value: Any) -> str:
+    """Return the raw string value for Enum-backed state fields."""
+    if hasattr(value, "value"):
+        return str(value.value)
+    return "" if value is None else str(value)
+
+
+def status_is(value: Any, status: ContentStatus | str) -> bool:
+    """Compare content status safely after Pydantic/string serialization."""
+    return enum_value(value) == enum_value(status)

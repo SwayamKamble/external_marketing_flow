@@ -10,7 +10,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 
 from api.dependencies import get_node_context
-from api.schemas import CarouselImage, CarouselRenderResponse
+from api.schemas import CarouselImage, CarouselRenderResponse, CarouselRenderRequest
 from contentforge.core.graph import build_pipeline_graph
 from contentforge.core.state import ContentForgeState
 
@@ -18,8 +18,12 @@ router = APIRouter(prefix="/carousel", tags=["carousel"])
 
 
 @router.post("/render/{week_id}/{topic_id}", response_model=CarouselRenderResponse)
-async def render_carousel_preview(week_id: str, topic_id: str):
-    """Render carousel TSX to image previews via the Node renderer service."""
+async def render_carousel_preview(
+    week_id: str, 
+    topic_id: str, 
+    payload: CarouselRenderRequest | None = None
+):
+    """Render carousel HTML/CSS to image previews via the Node renderer service."""
     context = get_node_context(week_id=week_id)
     app = build_pipeline_graph(context)
     config = {"configurable": {"thread_id": week_id}}
@@ -36,20 +40,39 @@ async def render_carousel_preview(week_id: str, topic_id: str):
     if topic_content.content_format != "carousel":
         raise HTTPException(status_code=422, detail="Topic content format is not carousel")
 
-    if not topic_content.rendered_code:
-        raise HTTPException(status_code=422, detail="Carousel React code is not available yet")
+    render_topic_id = f"{week_id}_{topic_id}"
+    
+    # 1. Determine the HTML slides code
+    html_code = ""
+    if payload and payload.html_content:
+        html_code = payload.html_content
+    else:
+        # Check if the slides.html file exists on disk
+        project_root = Path(__file__).resolve().parents[2]
+        local_html_path = project_root / "data" / "exports" / render_topic_id / "slides.html"
+        if local_html_path.exists():
+            try:
+                html_code = local_html_path.read_text(encoding="utf-8")
+            except Exception:
+                pass
+
+    if not html_code:
+        html_code = topic_content.rendered_code
+
+    if not html_code:
+        raise HTTPException(status_code=422, detail="Carousel HTML code is not available yet")
 
     renderer_url = os.getenv("CAROUSEL_RENDERER_URL", "http://localhost:4000")
-    render_topic_id = f"{week_id}_{topic_id}"
 
     try:
         async with httpx.AsyncClient(timeout=90.0) as client:
             response = await client.post(
                 f"{renderer_url}/render",
                 json={
-                    "jsx_code": topic_content.rendered_code,
+                    "jsx_code": html_code,
                     "theme": topic_content.theme.model_dump() if topic_content.theme else {},
                     "topic_id": render_topic_id,
+                    "slides": [s.model_dump() for s in (topic_content.carousel_slides or [])],
                 },
             )
     except Exception as e:
@@ -58,8 +81,8 @@ async def render_carousel_preview(week_id: str, topic_id: str):
     if response.status_code != 200:
         raise HTTPException(status_code=502, detail=f"Renderer failed: {response.text}")
 
-    payload = response.json()
-    files = payload.get("files", [])
+    payload_data = response.json()
+    files = payload_data.get("files", [])
 
     images: list[CarouselImage] = []
     for file_path in files:

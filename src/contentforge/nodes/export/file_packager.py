@@ -24,7 +24,7 @@ class FilePackager(BaseNode):
         topic_id = input_data.get("pending_topic_id")
         
         if not context.week_id or not topic_id:
-            return {"pipeline_status": "done"}
+            return {"pipeline_status": "export"}
 
         # In a production system, this would gather all artifacts from `data/<week_id>`
         # and zip them up.
@@ -36,4 +36,4 @@ class FilePackager(BaseNode):
         if context.logger:
              context.logger.event("files.packaged", {"path": out_path})
 
-        return {"pipeline_status": "done", "delivery_path": out_path}
+        return {"pipeline_status": "export", "delivery_path": out_path}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from contentforge.core.state import ContentStatus
+from contentforge.core.state import ContentStatus, status_is
 from contentforge.nodes._base import BaseNode, NodeContext
 
 
@@ -28,18 +28,10 @@ class EditRouter(BaseNode):
 
         tc = content_dict[topic_id]
 
-        if tc.status == ContentStatus.APPROVED:
+        if status_is(tc.status, ContentStatus.APPROVED):
             return {"pipeline_status": "export"}
 
-        tc.status = ContentStatus.EDITING
-        updated_content = dict(content_dict)
-        updated_content[topic_id] = tc
-        
-        # We need human approval or feedback
-        # LangGraph will pause here and wait for Human-in-the-loop
+        # If not approved yet, we stay in the review phase
         return {
-            "content": updated_content,
-            "pipeline_status": "editing",
-            "human_action_required": True,
-            "human_action_type": "review_content"
+            "pipeline_status": "review",
         }

@@ -10,6 +10,45 @@ from contentforge.core.state import ContentForgeState, ContentStatus
 
 router = APIRouter(prefix="/pipeline", tags=["pipeline"])
 
+def get_interrupt_status(snapshot) -> tuple[bool, str | None]:
+    """Derive human action state from LangGraph interrupt checkpoint."""
+    next_nodes = getattr(snapshot, "next", None) or []
+    nn = next_nodes[0] if next_nodes else None
+    if nn == "research_parser":
+        return True, "paste_research"
+    if nn == "deep_prompt":
+        # Graph paused AFTER planner (interrupt_after) - next node is deep_prompt.
+        # User must select topics before deep_prompt can run.
+        return True, "select_topics"
+    if nn == "deep_parse":
+        return True, "paste_deep_research"
+    if nn == "edit_router":
+        return True, "review_content"
+    return False, None
+def _get_prompt_content(week_id: str, status: str, action_type: str | None, pending_topic_id: str | None) -> str | None:
+    """Load the relevant prompt content from disk for embedding in status responses."""
+    try:
+        memory = get_memory()
+        if action_type == "paste_research" or (not action_type and status == "research"):
+            result = memory.read_artifact(week_id=week_id, phase="01_research", filename="research_prompts.md")
+            if result.get("exists"):
+                return result["content"]
+        elif action_type == "paste_deep_research" or status == "deep_research":
+            if pending_topic_id:
+                result = memory.read_artifact(
+                    week_id=week_id, phase="04_deep_research",
+                    filename=f"deep_research_prompt_{pending_topic_id}.md"
+                )
+                if result.get("exists"):
+                    return result["content"]
+            # Fallback: try generic
+            result = memory.read_artifact(week_id=week_id, phase="04_deep_research", filename="deep_research_prompts.md")
+            if result.get("exists"):
+                return result["content"]
+    except Exception:
+        pass
+    return None
+
 @router.post("/start", response_model=PipelineStatusResponse)
 async def start_pipeline(req: StartPipelineRequest, background_tasks: BackgroundTasks):
     """Initializes and runs the LangGraph pipeline for a specific week."""
@@ -22,30 +61,70 @@ async def start_pipeline(req: StartPipelineRequest, background_tasks: Background
     
     # Initial state
     initial_state = ContentForgeState(
+        week_id=req.week_id,
         pipeline_status="research",
         raw_research=[],
         topic_bank=[],
+        weekly_plan=[],
+        selected_topics=[],
+        topic_queue=[],
+        deep_research={},
+        raw_deep_research={},
         content={},
+        pending_topic_id=None,
+        human_action_required=False,
+        human_action_type=None,
         carousel_status="",
     )
-    
-    # Start graph (would be async/backgrounded in real prod, but we'll await a chunk for now)
+
+    # Delete existing thread history in checkpointer to start the pipeline fresh from the entry point.
     try:
-        final_state = await app.ainvoke(initial_state.model_dump(), config=config)
+        if hasattr(app, "checkpointer") and app.checkpointer:
+            if hasattr(app.checkpointer, "delete_thread"):
+                app.checkpointer.delete_thread(req.week_id)
+            elif hasattr(app.checkpointer, "adelete_thread"):
+                await app.checkpointer.adelete_thread(req.week_id)
+    except Exception as exc:
+        if context.logger:
+            context.logger.error("api_start_pipeline", f"Failed to clear thread checkpointer: {exc}")
+
+    # Hard reset existing thread state for this week_id so stale carousel
+    # fallback slides from prior runs cannot leak into a new start.
+    try:
+        app.update_state(config, initial_state.model_dump())
+    except Exception:
+        pass
+    
+    # Start graph — it will run through brand_loader + prompt_gen
+    # then hit the research_parser interrupt and pause. This is fast (~2-5s).
+    import asyncio
+    try:
+        await asyncio.wait_for(
+            app.ainvoke(initial_state.model_dump(), config=config),
+            timeout=60
+        )
+    except asyncio.TimeoutError:
+        if context.logger:
+            context.logger.error("api_start_pipeline", "Start timed out after 60s")
     except Exception as e:
-        context.logger.error("api_start_pipeline", f"Failed starting graph: {e}")
+        if context.logger:
+            context.logger.error("api_start_pipeline", f"Failed starting graph: {e}")
         raise HTTPException(status_code=500, detail=str(e))
         
-    # Re-wrap the dictionary output into our Pydantic model for clean representation
-    state_obj = ContentForgeState(**final_state)
+    snapshot = app.get_state(config)
+    state_obj = ContentForgeState(**snapshot.values)
+    req_action, type_action = get_interrupt_status(snapshot)
+    
+    prompt = _get_prompt_content(req.week_id, state_obj.pipeline_status, type_action, state_obj.pending_topic_id)
     
     return PipelineStatusResponse(
         week_id=req.week_id,
-        status=state_obj.pipeline_status,
+        status="review" if type_action == "review_content" else state_obj.pipeline_status,
         pending_topic_id=state_obj.pending_topic_id,
-        human_action_required=state_obj.human_action_required,
-        human_action_type=state_obj.human_action_type,
-        state=state_obj.model_dump()
+        human_action_required=req_action,
+        human_action_type=type_action,
+        state=state_obj.model_dump(),
+        prompt_content=prompt,
     )
 
 
@@ -62,14 +141,18 @@ async def get_status(week_id: str):
         raise HTTPException(status_code=404, detail="Pipeline thread not found")
         
     state_obj = ContentForgeState(**snapshot.values)
+    req_action, type_action = get_interrupt_status(snapshot)
+    
+    prompt = _get_prompt_content(week_id, state_obj.pipeline_status, type_action, state_obj.pending_topic_id)
     
     return PipelineStatusResponse(
         week_id=week_id,
-        status=state_obj.pipeline_status,
+        status="review" if type_action == "review_content" else state_obj.pipeline_status,
         pending_topic_id=state_obj.pending_topic_id,
-        human_action_required=state_obj.human_action_required,
-        human_action_type=state_obj.human_action_type,
-        state=state_obj.model_dump()
+        human_action_required=req_action,
+        human_action_type=type_action,
+        state=state_obj.model_dump(),
+        prompt_content=prompt,
     )
 
 
@@ -108,6 +191,7 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
         if not payload.feedback.strip():
             raise HTTPException(status_code=422, detail="feedback is required for action='edit'")
         update_data["human_feedback"] = payload.feedback
+        update_data["pipeline_status"] = "review"
     elif payload.action == "supply_raw_research":
         if not payload.raw_research_data or not payload.raw_research_data.strip():
             raise HTTPException(status_code=422, detail="raw_research_data is required for action='supply_raw_research'")
@@ -143,15 +227,19 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
         update_data["topic_index"] = 1
         update_data["topic_total"] = len(selected)
     elif payload.action == "supply_deep_research":
-        topic_id = payload.topic_id or state_obj.pending_topic_id
+        # Always prefer the current pending_topic_id from graph state
+        topic_id = state_obj.pending_topic_id or payload.topic_id
         if not topic_id:
             raise HTTPException(status_code=422, detail="topic_id is required for action='supply_deep_research'")
 
-        if state_obj.pending_topic_id and topic_id != state_obj.pending_topic_id:
-            raise HTTPException(
-                status_code=422,
-                detail=f"topic_id '{topic_id}' does not match pending_topic_id '{state_obj.pending_topic_id}'"
-            )
+        # If frontend sent a different topic_id, log it but use the real pending one
+        if payload.topic_id and state_obj.pending_topic_id and payload.topic_id != state_obj.pending_topic_id:
+            if context.logger:
+                context.logger.event("api.topic_id_autocorrect", {
+                    "sent": payload.topic_id,
+                    "actual_pending": state_obj.pending_topic_id,
+                })
+            topic_id = state_obj.pending_topic_id
 
         research_text = payload.deep_research_text
         if not research_text and payload.deep_research_data:
@@ -188,36 +276,67 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
             tc.status = ContentStatus.APPROVED
             updated_content[state_obj.pending_topic_id] = tc
             update_data["content"] = updated_content
+            update_data["pipeline_status"] = "export"
     elif payload.action == "approve_plan":
         # No-op action kept for compatibility with existing frontend behavior.
         # The pipeline will wait for explicit `select_topics` before deep research.
         pass
     # 'approve' just clears the interrupt markers and proceeds
 
-    resume_interrupts = list(DEFAULT_INTERRUPTS)
-    if payload.action == "supply_raw_research" and "research_parser" in resume_interrupts:
-        resume_interrupts.remove("research_parser")
-    if payload.action in ("select_topics", "approve_plan") and "deep_prompt" in resume_interrupts:
-        resume_interrupts.remove("deep_prompt")
-    if payload.action == "supply_deep_research" and "deep_parse" in resume_interrupts:
-        resume_interrupts.remove("deep_parse")
-    if payload.action in ("approve", "approve_content", "edit") and "edit_router" in resume_interrupts:
-        resume_interrupts.remove("edit_router")
+    # ALWAYS use the same graph with DEFAULT_INTERRUPTS.
+    # LangGraph handles resume-and-re-interrupt correctly with invoke(None).
+    resume_app = build_pipeline_graph(context)
 
-    resume_app = build_pipeline_graph(context, interrupt_before=resume_interrupts)
+    # Determine which node was interrupted so update_state injects correctly
+    snapshot_next = getattr(snapshot, "next", None)
+    interrupted_node = snapshot_next[0] if snapshot_next else None
 
-    def _persist_and_resume(values: dict[str, object]) -> dict:
-        resumed_config = resume_app.update_state(config, values)
-        return resumed_config
-        
+    # as_node logic:
+    # - as_node=None: the interrupted node will RUN with the updated state.
+    #   Used for: supply_raw_research, supply_deep_research, select_topics
+    # - as_node=interrupted_node: marks the node as "done", graph moves to the NEXT node.
+    #   Used for: approve, approve_content, edit (we don't want to re-run the node)
+    skip_node = payload.action in ("approve", "approve_content", "edit")
+    use_as_node = interrupted_node if skip_node else None
+
     try:
-        resumed_config = _persist_and_resume(update_data)
-        final_state = await resume_app.ainvoke({}, config=resumed_config)
+        if context.logger:
+            context.logger.event("api.resume.pre_update", {
+                "interrupted_node": interrupted_node,
+                "as_node": use_as_node,
+                "update_keys": list(update_data.keys()),
+            })
+        resume_app.update_state(config, update_data, as_node=use_as_node)
     except Exception as e:
-        context.logger.error("api_resume_pipeline", f"Failed resuming graph: {e}")
+        if context.logger:
+            context.logger.error("api_resume_pipeline", f"Failed updating state: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-        
-    new_state = ContentForgeState(**final_state)
+
+    # Run the graph synchronously. LangGraph will:
+    # - Resume from the current interrupt
+    # - Run nodes until the next interrupt_before fires
+    # - Return when paused or finished
+    # This handles the deep research loop correctly:
+    #   deep_parse → router → deep_prompt → deep_parse (re-interrupt)
+    import asyncio
+
+    try:
+        await asyncio.wait_for(
+            resume_app.ainvoke(None, config=config),
+            timeout=120  # 2 min max — most steps are now instant
+        )
+    except asyncio.TimeoutError:
+        if context.logger:
+            context.logger.error("api_resume_pipeline", "Graph invocation timed out after 300s")
+    except Exception as exc:
+        if context.logger:
+            context.logger.error("api_resume_pipeline", f"Graph failed: {exc}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    # Read the final state after the graph paused at the next interrupt
+    snapshot_new = resume_app.get_state(config)
+    new_state = ContentForgeState(**snapshot_new.values)
+    req_action, type_action = get_interrupt_status(snapshot_new)
 
     if context.logger:
         context.logger.event(
@@ -226,18 +345,24 @@ async def provide_feedback(week_id: str, payload: FeedbackRequest):
                 "week_id": week_id,
                 "action": payload.action,
                 "status_after": new_state.pipeline_status,
-                "human_action_required": new_state.human_action_required,
-                "human_action_type": new_state.human_action_type,
-                "topic_bank_count": len(new_state.topic_bank),
-                "weekly_plan_count": len(new_state.weekly_plan),
+                "pending_topic_id": new_state.pending_topic_id,
+                "human_action_type": type_action,
             },
         )
     
+    # Prefer prompt_content from state (set by deep_research_prompt_generator) over disk
+    prompt = None
+    if hasattr(snapshot_new, 'values') and snapshot_new.values:
+        prompt = snapshot_new.values.get('prompt_content')
+    if not prompt:
+        prompt = _get_prompt_content(week_id, new_state.pipeline_status, type_action, new_state.pending_topic_id)
+
     return PipelineStatusResponse(
         week_id=week_id,
-        status=new_state.pipeline_status,
+        status="review" if type_action == "review_content" else new_state.pipeline_status,
         pending_topic_id=new_state.pending_topic_id,
-        human_action_required=new_state.human_action_required,
-        human_action_type=new_state.human_action_type,
-        state=new_state.model_dump()
+        human_action_required=req_action,
+        human_action_type=type_action,
+        state=new_state.model_dump(),
+        prompt_content=prompt,
     )

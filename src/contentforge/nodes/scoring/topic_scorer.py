@@ -1,12 +1,18 @@
-"""Node to score and filter topics in the topic bank."""
+"""Node to score and filter topics in the topic bank.
+
+Optimized: deterministic scoring without LLM call.
+"""
 
 from __future__ import annotations
 
+import hashlib
 import json
 from typing import Any
 
 from contentforge.core.state import Topic
 from contentforge.nodes._base import BaseNode, NodeContext
+
+TOP_TOPIC_LIMIT = 7
 
 
 def _topic_get(topic: Topic | dict[str, Any], key: str, default: Any = None) -> Any:
@@ -15,11 +21,68 @@ def _topic_get(topic: Topic | dict[str, Any], key: str, default: Any = None) -> 
     return getattr(topic, key, default)
 
 
+def _deterministic_score(topic: Topic) -> tuple[float, str]:
+    """Score a topic deterministically based on its attributes.
+    
+    Criteria:
+    - Has key_points (richer = better): +2 per point (max 4)
+    - Has suggested_angle (specific angle = better): +2
+    - Has suggested_format: +1
+    - Has tags: +0.5 per tag (max 2)
+    - Title length (not too short, not too long): +1
+    - Has category: +0.5
+    - Has source: +0.5
+    """
+    score = 3.0  # Base score
+    reasons = []
+
+    kp = _topic_get(topic, "key_points", [])
+    if kp:
+        bonus = min(len(kp) * 0.5, 2.0)
+        score += bonus
+        reasons.append(f"{len(kp)} key points (+{bonus})")
+
+    angle = _topic_get(topic, "suggested_angle", "")
+    if angle and len(angle) > 10:
+        score += 2.0
+        reasons.append("strong angle (+2)")
+
+    fmt = _topic_get(topic, "suggested_format", None)
+    if fmt:
+        score += 1.0
+        reasons.append("has format (+1)")
+
+    tags = _topic_get(topic, "tags", [])
+    if tags:
+        bonus = min(len(tags) * 0.25, 1.0)
+        score += bonus
+        reasons.append(f"{len(tags)} tags (+{bonus})")
+
+    title = _topic_get(topic, "title", "")
+    if 15 < len(title) < 100:
+        score += 0.5
+        reasons.append("good title length (+0.5)")
+
+    if _topic_get(topic, "category", ""):
+        score += 0.5
+        reasons.append("has category (+0.5)")
+
+    if _topic_get(topic, "source", ""):
+        score += 0.5
+        reasons.append("has source (+0.5)")
+
+    # Cap at 10
+    score = min(score, 10.0)
+    reasoning = f"Deterministic score: {', '.join(reasons)}"
+    return round(score, 1), reasoning
+
+
 class TopicScorer(BaseNode):
     """Scores generated topics based on virality and brand fit.
 
-    Evaluates the current topic bank and assigns a score (0.0 to 10.0)
-    and reasoning to each topic, helping the planner select the best ones.
+    OPTIMIZED: Uses deterministic scoring instead of LLM call.
+    Evaluates topic attributes (key_points, angle, format, tags) to
+    assign a score from 0-10 instantly, eliminating 10-20s LLM latency.
     """
 
     node_name = "topic_scorer"
@@ -27,75 +90,37 @@ class TopicScorer(BaseNode):
     description = "Scores topics in the bank for virality, value, and brand fit."
 
     async def process(self, input_data: dict[str, Any], context: NodeContext) -> dict[str, Any]:
-        """Score all topics in the topic_bank."""
+        """Score all topics deterministically (no LLM call)."""
         topic_bank = input_data.get("topic_bank", [])
         if not topic_bank:
             if context.logger:
                 context.logger.error(self.node_name, "topic_bank is empty.")
             return {"topic_bank": []}
 
-        # Build prompt
-        system_prompt, config = self.load_prompt(context)
-
-        # Prepare payload for LLM (just id, title, summary, key points to save tokens)
-        payload = [
-            {
-                "id": _topic_get(t, "id", ""),
-                "title": _topic_get(t, "title", ""),
-                "summary": _topic_get(t, "summary", ""),
-                "key_points": _topic_get(t, "key_points", []),
-            }
-            for t in topic_bank
-        ]
-        
-        result = await self.call_llm(
-            context=context,
-            system_prompt=system_prompt,
-            user_message=f"Here is the topic bank. Please score each topic:\n\n{json.dumps(payload, indent=2)}",
-            response_format={"type": "json_object"},
-            model=config.get("model", "gpt-5-chat"),
-            temperature=config.get("temperature", 0.3),
-        )
-
-        if not result.success:
-            if context.logger:
-                context.logger.error(self.node_name, f"LLM scoring failed: {result.error}")
-            return {"topic_bank": topic_bank}
-
-        try:
-            parsed = json.loads(result.content)
-            scores_data = parsed.get("scores", [])
-        except json.JSONDecodeError as e:
-            if context.logger:
-                context.logger.error(self.node_name, f"Invalid JSON returned: {e}")
-            return {"topic_bank": topic_bank}
-
-        # Map scores to topic objects
-        score_map = {item.get("id"): item for item in scores_data}
-        
         updated_bank = []
         for topic in topic_bank:
-            topic_id = _topic_get(topic, "id")
-            score_info = score_map.get(topic_id)
-            if score_info:
-                score = float(score_info.get("score", _topic_get(topic, "score", 0.0)))
-                reasoning = score_info.get("reasoning", "")
-            else:
-                score = float(_topic_get(topic, "score", 0.0))
-                reasoning = _topic_get(topic, "scoring_reasoning", "")
-
             if isinstance(topic, dict):
                 topic = Topic(**topic)
+            
+            score, reasoning = _deterministic_score(topic)
             topic.score = score
             topic.scoring_reasoning = reasoning
             updated_bank.append(topic)
-            
-        # Sort by score descending
+
+        # Sort by score descending and keep only the top N for planning.
         updated_bank.sort(key=lambda x: x.score, reverse=True)
+        top_bank = updated_bank[:TOP_TOPIC_LIMIT]
+
+        if context.logger:
+            context.logger.event("topic_scorer.deterministic", {
+                "count": len(top_bank),
+                "input_count": len(updated_bank),
+                "top_score": top_bank[0].score if top_bank else 0,
+            })
 
         # Save artifact for visibility
         content = "\n\n".join(
-            f"## [{t.score}/10] {t.title}\n{t.scoring_reasoning}" for t in updated_bank
+            f"## [{t.score}/10] {t.title}\n{t.scoring_reasoning}" for t in top_bank
         )
         self.save_artifact(
             context=context,
@@ -104,4 +129,4 @@ class TopicScorer(BaseNode):
             content=content,
         )
 
-        return {"topic_bank": updated_bank}
+        return {"topic_bank": top_bank}
