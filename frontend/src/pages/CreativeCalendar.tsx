@@ -23,23 +23,8 @@ import {
   getCreativeStatus,
   getQuickStatus
 } from "../services/creativeApi";
-
-interface SeriesDay {
-  day_number: number;
-  title: string;
-  platform: string;
-  content_type: string;
-  hook: string;
-  angle: string;
-  teaching_goal: string;
-  key_points: string[];
-  talking_points?: string[];
-  slide_outline?: any[];
-  script?: string;
-  caption?: string;
-  cta?: string;
-  notes?: string;
-}
+import { buildDayPrompt } from "./CreativeManager";
+import type { SeriesDay, SeriesPlan } from "./CreativeManager";
 
 // Platform Icon Components
 const InstagramIcon = ({ className, size = 20 }: { className?: string; size?: number }) => (
@@ -346,6 +331,7 @@ export default function CreativeCalendar() {
                   const platform = day.platform.toLowerCase() || "instagram";
                   const PlatformIcon = PLATFORM_ICONS[platform] || Smartphone;
                   const colors = PLATFORM_COLORS[platform] || { border: "border-slate-800", bg: "bg-slate-850", text: "text-slate-300" };
+                  const dayPrompt = buildDayPrompt(day, activeSession.series_plan as SeriesPlan, platform, selectedSessionId);
 
                   return (
                     <div
@@ -497,6 +483,32 @@ export default function CreativeCalendar() {
                               </pre>
                             </div>
                           )}
+
+                          {/* Production Prompt Area */}
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex justify-between items-center">
+                              <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
+                                <Sparkles size={12} className="text-emerald-400" /> Production Prompt
+                              </span>
+                              <button
+                                onClick={() => handleCopyText(dayPrompt, day.day_number, "prompt")}
+                                className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold"
+                              >
+                                {copiedDay === day.day_number && copiedType === "prompt" ? (
+                                  <>
+                                    <Check size={10} /> Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy size={10} /> Copy Prompt
+                                  </>
+                                )}
+                              </button>
+                            </div>
+                            <pre className="text-[11px] font-mono text-slate-300 bg-slate-900 border border-slate-800/80 p-3 rounded-xl max-h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                              {dayPrompt}
+                            </pre>
+                          </div>
                         </div>
                       )}
 

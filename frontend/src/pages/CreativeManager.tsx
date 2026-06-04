@@ -130,7 +130,7 @@ interface DayPlan {
 }
 
 // Quick Prompt types
-interface SeriesDay {
+export interface SeriesDay {
   day_number: number;
   title: string;
   platform: string;
@@ -147,7 +147,7 @@ interface SeriesDay {
   notes: string;
 }
 
-interface SeriesPlan {
+export interface SeriesPlan {
   intent: any;
   days: SeriesDay[];
   status: string;
@@ -210,7 +210,7 @@ const CATEGORY_EMOJIS: Record<string, string> = {
 };
 
 // Series theme presets - each series gets a unique visual identity
-const SERIES_THEMES = [
+export const SERIES_THEMES = [
   { name: "aurora", pri: "#8b5cf6", sec: "#06b6d4", acc: "#c084fc", border: "#8b5cf6", badgeBg: "rgba(139,92,246,0.15)", badgeText: "#c084fc", gradient: "from-violet-600 to-cyan-500" },
   { name: "ember", pri: "#f97316", sec: "#ef4444", acc: "#fbbf24", border: "#f97316", badgeBg: "rgba(249,115,22,0.15)", badgeText: "#fdba74", gradient: "from-orange-500 to-red-500" },
   { name: "forest", pri: "#10b981", sec: "#84cc16", acc: "#34d399", border: "#10b981", badgeBg: "rgba(16,185,129,0.15)", badgeText: "#6ee7b7", gradient: "from-emerald-500 to-lime-500" },
@@ -221,7 +221,7 @@ const SERIES_THEMES = [
   { name: "coral", pri: "#fb7185", sec: "#fdba74", acc: "#fda4af", border: "#fb7185", badgeBg: "rgba(251,113,133,0.15)", badgeText: "#fda4af", gradient: "from-rose-400 to-orange-300" },
 ];
 
-function getSeriesTheme(sessionId: string | null): typeof SERIES_THEMES[0] {
+export function getSeriesTheme(sessionId: string | null): typeof SERIES_THEMES[0] {
   if (!sessionId) return SERIES_THEMES[0];
   let hash = 0;
   for (let i = 0; i < sessionId.length; i++) {
@@ -230,7 +230,7 @@ function getSeriesTheme(sessionId: string | null): typeof SERIES_THEMES[0] {
   return SERIES_THEMES[Math.abs(hash) % SERIES_THEMES.length];
 }
 
-function buildDayPrompt(day: SeriesDay, plan: SeriesPlan, platform: string, qpSessionId: string | null): string {
+export function buildDayPrompt(day: SeriesDay, plan: SeriesPlan, platform: string, qpSessionId: string | null): string {
   const intent = plan.intent || {} as any;
   const topic = intent.topic_theme || "AI & Tech";
   const audience = intent.target_audience || "AI enthusiasts, developers, tech professionals";
