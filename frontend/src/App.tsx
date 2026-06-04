@@ -3,8 +3,9 @@ import { BrowserRouter, Routes, Route, Link, useLocation } from "react-router-do
 import Dashboard from "./pages/Dashboard";
 import CalendarView from "./pages/CalendarView";
 import CreativeManager from "./pages/CreativeManager";
+import CreativeCalendar from "./pages/CreativeCalendar";
 import HumanInLoopChat from "./components/HumanInLoopChat";
-import { LayoutDashboard, Calendar, FileEdit, Sparkles } from "lucide-react";
+import { LayoutDashboard, Calendar, FileEdit, Sparkles, CalendarCheck } from "lucide-react";
 
 function NavLink({ to, children }: { to: string; children: React.ReactNode }) {
   const location = useLocation();
@@ -58,6 +59,10 @@ export default function App() {
               <Sparkles size={20} />
               Creative Manager
             </NavLink>
+            <NavLink to="/creative-calendar">
+              <CalendarCheck size={20} />
+              Creative Calendar
+            </NavLink>
           </nav>
         </div>
 
@@ -68,6 +73,7 @@ export default function App() {
             <Route path="/calendar" element={<CalendarView weekId={weekId} />} />
             <Route path="/review" element={<HumanInLoopChat weekId={weekId} />} />
             <Route path="/creative" element={<CreativeManager weekId={weekId} />} />
+            <Route path="/creative-calendar" element={<CreativeCalendar />} />
           </Routes>
         </div>
       </div>
