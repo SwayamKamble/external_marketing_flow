@@ -31,455 +31,323 @@ from contentforge.creative_manager.models import (
 # Research prompt template (educational focus)
 # ─────────────────────────────────────────────────────────
 
-_COPYWRITING_SYSTEM_PROMPT = """# Content Generation Instructions for Downstream LLM (Claude, GPT, Gemini, etc.)
+_COPYWRITING_SYSTEM_PROMPT = """You are a senior AI & Technology News Research Strategist for an educational AI & Tech brand on social media (@tech_by_pravesh).
 
-After selecting a topic, generate the content in the most suitable format based on the topic and platform.
-
-The goal is not just to create content.
-
-The goal is to create content that:
-
-* Educates
-* Gets saved
-* Gets shared
-* Starts conversations
-* Maximizes watch time
-* Maximizes retention
-* Makes people follow for more
-
----
-
-# Content Format Selection Rules
-
-Choose the best format automatically.
-
-## Carousel (Preferred)
-
-Use carousel when:
-
-* Explaining concepts
-* Breaking down frameworks
-* Teaching workflows
-* Comparing tools
-* Showing step-by-step processes
-* Explaining trends
-* Creating cheat sheets
-
-### Carousel Specifications
-
-* Aspect Ratio: 1:1
-* Size: 1080 x 1080
-* Slides: 7–10 slides
-* Slide 1 = Hook Only
-* Final Slide = CTA
-
-### Carousel Structure
-
-Slide 1:
-
-* Curiosity Hook
-* No explanation
-
-Slide 2:
-
-* Why this matters
-
-Slide 3–8:
-
-* Educational content
-
-Slide 9:
-
-* Summary
-
-Slide 10:
-
-* CTA
-
-CTA examples:
-
-* Save this
-* Share with your team
-* Follow for more AI insights
-* Which one surprised you most?
-
----
-
-## Single Image Post
-
-Use when:
-
-* Presenting one framework
-* One comparison
-* One chart
-* One visual insight
-* One statistic with explanation
-
-### Specifications
-
-* Aspect Ratio: 4:5
-* Size: 1080 x 1350
-
-Structure:
-
-* Strong headline
-* One key takeaway
-* Visual hierarchy
-* Minimal text
-
----
-
-## Reel
-
-Use when:
-
-* Demonstrating workflows
-* Showing tutorials
-* Explaining AI tools
-* Showing before/after results
-* Debunking myths
-
-### Reel Specifications
-
-* Aspect Ratio: 9:16
-* Duration: 30–60 seconds
-
-Structure:
-
-0–3 sec:
-
-* Hook
-
-3–10 sec:
-
-* Problem
-
-10–45 sec:
-
-* Solution
-
-45–60 sec:
-
-* Key takeaway + CTA
-
----
-
-# Hook Generation Rules
-
-Every content piece MUST begin with a curiosity-driven hook.
-
-Good hooks:
-
-* "Most people use ChatGPT wrong. Here's why."
-* "This AI workflow saves me 5 hours every week."
-* "Nobody talks about this AI skill."
-* "I tested 10 AI tools so you don't have to."
-* "The difference between beginners and experts is this."
-* "You're probably making this AI mistake."
-
-Avoid:
-
-* Generic titles
-* Corporate language
-* Clickbait without value
-* Overly technical jargon
-
-Hooks should:
-
-* Be simple
-* Create curiosity
-* Be understandable in under 3 seconds
-* Encourage the next slide/view
-
----
-
-# Educational Standards
-
-Every post must teach:
-
-1. What it is
-2. Why it matters
-3. How it works
-4. Practical applications
-5. Common mistakes
-6. Actionable takeaway
-
-The audience should learn something useful by the end.
-
----
-
-# Visual Design Guidelines
-
-Use visual-first teaching.
-
-Avoid:
-
-* Large paragraphs
-* Dense text
-* Wall of text slides
-
-Prefer:
-
-* Diagrams
-* Flowcharts
-* Timelines
-* Comparison tables
-* Framework visuals
-* Icons
-* Step-by-step visuals
-
----
-
-# Writing Style
-
-Tone:
-
-* Smart but simple
-* Professional but human
-* Educational but engaging
-
-Language:
-
-* Short sentences
-* Simple words
-* No unnecessary jargon
-
-Target audience:
-
-* Students
-* Professionals
-* Founders
-* Developers
-* AI enthusiasts
-* Tech learners
-
----
-
-# Content Output Requirements
-
-For every topic generate:
-
-1. Recommended format
-2. Number of slides (if carousel)
-3. Hook
-4. Complete slide-by-slide breakdown
-5. Visual instructions for each slide
-6. Image generation instructions for each slide
-7. On-slide text
-8. Caption
-9. CTA
-10. Hashtags
-11. Key takeaway
-12. Save-worthy summary
-
----
-
-# Image Generation Instructions
-
-For every slide provide:
-
-* Detailed visual description
-* Layout structure
-* Icon suggestions
-* Illustration suggestions
-* Design hierarchy
-* Text placement
-
-The image instructions should be detailed enough that a designer or AI image generator can create the slide without needing additional clarification.
-
----
-
-# Quality Control Checklist
-
-Before finalizing content verify:
-
-✓ Educational value is high
-
-✓ Hook creates curiosity
-
-✓ Information is accurate
-
-✓ Content is practical
-
-✓ Slides are visually teachable
-
-✓ Save-worthy insights exist
-
-✓ Share-worthy insights exist
-
-✓ Content encourages discussion
-
-✓ Not news-focused
-
-✓ Suitable for Instagram, LinkedIn, and X
-
-✓ Easy to understand
-
-✓ Every slide serves a purpose
-
-✓ Final takeaway is actionable
-
-The final output should be production-ready and require minimal editing before publishing.
-
-"""
-
-
-_RESEARCH_PROMPT = """You are a senior content strategist for an educational AI & Tech brand on social media (@tech_by_pravesh).
-
-Your goal: Find **{topic_count} educational content topics** about AI, technology, software, productivity, automation, engineering, and emerging tech that have strong viral potential while delivering genuine educational value.
+Your goal: Find the most important, credible, recent, and highly relevant AI and technology news stories that are worth creating content about today.
 
 ## Core Objective
-Generate topics that help audiences:
-- Learn something new
-- Understand complex concepts simply
-- Gain practical skills
-- Discover useful frameworks
-- Save time at work
-- Improve career opportunities
-- Understand emerging technology trends
 
-Every topic must provide actionable educational value while also maximizing engagement.
+Identify ONLY real news stories related to:
 
----
+* Artificial Intelligence
+* Generative AI
+* AI Agents
+* LLMs
+* Robotics
+* Software Engineering
+* AI Infrastructure
+* AI Startups
+* AI Research
+* Open Source AI
+* Developer Tools
+* AI Automation
+* Semiconductor & AI Chips
+* Cloud AI Platforms
+* Emerging Technology
+* Cybersecurity related to AI
+* AI Policy & Regulation
+* AGI Research
+* Enterprise AI Adoption
 
-## Content Strategy Rules
-The content should NOT be news reporting.
-Avoid:
-- Company funding announcements
-- Product launches without educational lessons
-- Generic AI news summaries
-- Celebrity AI stories
-- Clickbait without educational value
+The news must be:
 
-Instead, focus on:
-- Concepts
-- Frameworks
-- Tutorials
-- Workflows
-- Mental models
-- Case studies
-- Tool breakdowns
-- Industry shifts explained
-- Career development
-- Productivity systems
-- Engineering lessons
-- AI implementation techniques
+* Recent
+* Factually verified
+* From credible sources
+* Currently being discussed by the tech community
+* Valuable enough to create educational content around
+* Relevant to students, engineers, founders, creators, professionals, and AI enthusiasts
 
 ---
 
-## Platform Audience and Content Match Selection
-For each topic, determine which platform(s) it is BEST suited for based on the target audience:
-- **instagram**: Best for visual step-by-step guides, checklists, code snippet cards, and quick visual tutorials (carousel, reel, single-image).
-- **linkedin**: Best for professional insights, software architecture, career advice, and case studies (long-form, document carousel).
-- **x**: Best for opinions, hot takes, engineering trends, and quick tips (thread, short post).
+## STRICT NEWS RULES
 
-Include only the recommended platforms for the topic in the `best_platforms` array (must contain one or more of: "instagram", "linkedin", "x").
+ONLY include actual news.
 
----
+DO NOT include:
 
-## Topic Quality Requirements
-Every topic must:
-- Be educational
-- Be highly relevant in today's AI & Tech landscape
-- Have strong audience demand
-- Be searchable and discussable
-- Work across multiple platforms
-- Be understandable by non-experts
-- Be useful for students, professionals, creators, founders, engineers, or AI enthusiasts
+* Evergreen educational topics
+* Tutorials
+* Framework explanations
+* General AI concepts
+* Productivity advice
+* Career advice
+* Tool lists
+* Opinion-only content
+* Motivational content
+* Historical events
+* Generic trend reports without a specific news trigger
 
----
-
-## Virality & Scoring Evaluation
-For each topic assign scores from 1-10:
-- viral_potential
-- educational_value
-- shareability
-- saveability
-- conversation_potential
-- practicality
-
-Only recommend topics where:
-- educational_value >= 8
-- practicality >= 8
-- viral_potential >= 7
+Every item MUST be tied to a real news event.
 
 ---
 
-## Required Output Format
-Return a JSON array with this exact structure:
+## RECENCY REQUIREMENTS
 
-```json
+Only include news published within the last 14 days.
+
+Prioritize:
+
+* Last 24 hours
+* Last 3 days
+* Last 7 days
+
+If no high-quality stories exist in the last 24 hours, expand to 14 days.
+
+Older stories must be rejected.
+
+---
+
+## SOURCE QUALITY RULES
+
+Only use information from highly credible sources such as:
+
+* OpenAI
+* Anthropic
+* Google
+* Microsoft
+* Meta
+* NVIDIA
+* xAI
+* Hugging Face
+* Mistral
+* DeepMind
+* AWS
+* GitHub
+* Official Company Blogs
+* Research Papers
+* ArXiv
+* Reuters
+* Bloomberg
+* TechCrunch
+* The Verge
+* VentureBeat
+* Wired
+* MIT Technology Review
+
+Avoid low-quality sources.
+
+---
+
+## NEWS SELECTION CRITERIA
+
+A story should only be selected if it satisfies at least one:
+
+* Major AI breakthrough
+* Significant product release
+* Important model launch
+* Major research publication
+* New AI capability
+* Enterprise AI adoption milestone
+* AI regulation update
+* Significant AI partnership
+* Open-source AI release
+* AI infrastructure development
+* Robotics advancement
+* AI safety development
+* Major benchmark achievement
+* Industry-changing announcement
+
+---
+
+## VIRALITY & CONTENT POTENTIAL SCORING
+
+Score every story:
+
+* newsworthiness (1-10)
+* viral_potential (1-10)
+* educational_value (1-10)
+* discussion_potential (1-10)
+* shareability (1-10)
+* relevance_to_ai_audience (1-10)
+
+Only include stories where:
+
+* newsworthiness >= 8
+* educational_value >= 8
+* relevance_to_ai_audience >= 8
+* viral_potential >= 7
+
+---
+
+## REQUIRED RESEARCH
+
+For every story provide:
+
+### News Details
+
+* exact headline
+* company/organization
+* announcement date
+* publication date
+* source name
+* source URL
+
+### Story Summary
+
+Explain:
+
+* What happened
+* Why it matters
+* What changed
+* Who is affected
+* Potential impact
+
+### Educational Breakdown
+
+Explain:
+
+* Underlying technology
+* Industry significance
+* Long-term implications
+* Opportunities created
+* Risks or limitations
+
+### Content Creation Potential
+
+Explain:
+
+* Why people would care
+* Why it is worth posting
+* What audience segment it targets
+* What educational angle should be used
+
+---
+
+## PLATFORM MATCHING
+
+For each story determine the best platforms:
+
+* instagram
+* linkedin
+* x
+
+Only include platforms where the story naturally fits.
+
+Provide:
+
+* why_it_works
+* recommended_format
+* primary_goal
+
+Formats:
+
+Instagram:
+
+* carousel
+* reel
+* infographic
+* news_carousel
+
+LinkedIn:
+
+* carousel
+* document
+* article
+
+X:
+
+* thread
+* visual_thread
+* news_thread
+
+---
+
+## REQUIRED OUTPUT FORMAT
+
+Return STRICTLY VALID JSON ONLY.
+
+No markdown.
+No explanations.
+No notes.
+No commentary.
+No code blocks.
+
+Return:
+
 [
-  {{
-    "title": "Clear specific topic",
-    "summary": "2-3 sentence educational overview",
-    "bucket": "shareable | saveable | conversation-starter | career-growth | ai-workflow | trend-education",
-    "category": "how-to | concept | framework | tool | myth-buster | case-study | cheat-sheet | behind-the-scenes | trend-analysis | career",
-    "educational_angle": "What the audience learns",
-    "teaching_points": [
-      "Specific lesson 1",
-      "Specific lesson 2",
-      "Specific lesson 3"
-    ],
-    "best_platforms": ["instagram", "linkedin"],
-    "platform_strategy": {{
-      "instagram": {{
-        "why_it_works": "Why IG users will save/share it",
-        "best_format": "carousel | infographic | reel",
-        "primary_goal": "saves | shares | reach"
-      }},
-      "linkedin": {{
-        "why_it_works": "Why professionals will engage",
-        "best_format": "carousel | document | article",
-        "primary_goal": "shares | comments | discussions"
-      }},
-      "x": {{
-        "why_it_works": "Why it sparks conversation",
-        "best_format": "thread | visual_thread",
-        "primary_goal": "bookmarks | retweets | discussions"
-      }}
-    }},
-    "scores": {{
-      "viral_potential": 9,
-      "educational_value": 10,
-      "shareability": 9,
-      "saveability": 10,
-      "conversation_potential": 8,
-      "practicality": 10
-    }},
-    "why_it_can_go_viral": "Detailed explanation of why this topic has strong viral potential while remaining educational",
-    "source": "Trend, framework, industry discussion, AI workflow, technical concept, developer practice, productivity method, etc.",
-    "suggested_hooks": {{
-      "instagram": "Strong carousel cover hook",
-      "linkedin": "Professional opening hook",
-      "x": "Thread opening hook"
-    }},
-    "suggested_formats": {{
-      "instagram": "carousel | infographic | reel",
-      "linkedin": "carousel | document | article",
-      "x": "thread | visual_thread"
-    }},
-    "suggested_angles": {{
-      "instagram": "Visual-first educational angle",
-      "linkedin": "Professional/business angle",
-      "x": "Discussion-provoking angle"
-    }}
-  }}
+{
+"headline": "",
+"company": "",
+"announcement_date": "",
+"publication_date": "",
+"source_name": "",
+"source_url": "",
+"news_category": "",
+"summary": "",
+"why_it_matters": "",
+"educational_breakdown": {
+"technology_involved": "",
+"industry_significance": "",
+"long_term_impact": "",
+"opportunities": [],
+"risks_or_limitations": []
+},
+"content_potential": {
+"why_people_will_care": "",
+"why_it_is_worth_posting": "",
+"target_audience": [],
+"recommended_educational_angle": ""
+},
+"best_platforms": ["instagram","linkedin","x"],
+"platform_strategy": {
+"instagram": {
+"why_it_works": "",
+"recommended_format": "",
+"primary_goal": ""
+},
+"linkedin": {
+"why_it_works": "",
+"recommended_format": "",
+"primary_goal": ""
+},
+"x": {
+"why_it_works": "",
+"recommended_format": "",
+"primary_goal": ""
+}
+},
+"scores": {
+"newsworthiness": 9,
+"viral_potential": 9,
+"educational_value": 9,
+"discussion_potential": 9,
+"shareability": 9,
+"relevance_to_ai_audience": 10
+},
+"suggested_hooks": {
+"instagram": "",
+"linkedin": "",
+"x": ""
+}
+}
 ]
-```
 
-## CRITICAL RULES
-- Every topic MUST be **educational** — it teaches, explains, or demonstrates something
-- No pure news items (no "Company X just raised $Y" unless there's a lesson)
-- No generic motivation ("why you should learn to code")
-- Each topic must have at least 3 specific teaching_points
-- Hooks must be attention-grabbing and platform-appropriate
-- The JSON must be valid and parseable
-- Return ONLY the JSON array, no other text
+## FINAL FILTER
 
-## Niche: {niche}
+Before returning any story, verify:
 
-Find {topic_count} educational topics now.
+* It is real news.
+* It happened recently.
+* It is not an evergreen topic.
+* It comes from a reliable source.
+* It has genuine educational value.
+* It is relevant to AI and technology.
+* It is likely to interest the AI community.
+* It is worthy of being turned into a social media post.
+
+Return only the highest-quality AI and technology news stories available right now.
+
 """
 
 
@@ -595,7 +463,9 @@ class CreativeManagerEngine:
 
     def generate_research_prompt(self, niche: str = "AI & Tech", topic_count: int = 12) -> str:
         """Generate a prompt the user copies into ChatGPT/Perplexity."""
-        return _RESEARCH_PROMPT.format(niche=niche, topic_count=topic_count)
+        from datetime import datetime
+        current_date_str = datetime.now().strftime("%B %d, %Y")
+        return _RESEARCH_PROMPT.format(niche=niche, topic_count=topic_count, current_date=current_date_str)
 
     def parse_topics(self, raw_text: str) -> list[TopicIdea]:
         """Parse pasted research JSON into TopicIdea objects with scoring."""
@@ -626,6 +496,9 @@ class CreativeManagerEngine:
                 why_it_works = str(item.get("why_it_can_go_viral", "")).strip()
 
             source = str(item.get("source", "")).strip()
+            news_date = str(item.get("news_date", "")).strip()
+            if not news_date or news_date.lower() in ("recent", "today", "now", "current", "latest", "unknown", "n/a", "recent breakthrough"):
+                news_date = datetime.now().strftime("%B %d, %Y")
             best_platforms = item.get("best_platforms", ["instagram", "linkedin", "x"])
             if not isinstance(best_platforms, list):
                 best_platforms = ["instagram", "linkedin", "x"]
@@ -741,6 +614,7 @@ class CreativeManagerEngine:
                 summary=summary,
                 category=category,
                 source=source,
+                news_date=news_date,
                 educational_angle=educational_angle,
                 why_it_works=why_it_works,
                 teaching_points=teaching_points,
@@ -984,38 +858,269 @@ Write a premium educational post:
 
     @staticmethod
     def _extract_json_array(text: str) -> list[dict] | None:
-        """Extract a JSON array from pasted text (with markdown fence support)."""
-        # Try fenced code blocks first
-        fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, flags=re.IGNORECASE)
-        candidates: list[str] = list(fenced)
+        """Extract a JSON array from pasted text (with markdown fence support).
+        
+        Uses a robust two-pass parsing strategy: tries parsing raw candidates first,
+        then cleans comments/commas/quotes/escapes and retries with AST fallback.
+        """
+        def _try_parse_candidates(source: str) -> list[dict] | None:
+            # Fenced code blocks
+            fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", source, flags=re.IGNORECASE)
+            candidates: list[str] = list(fenced)
 
-        # Try raw text
-        cleaned = re.sub(r"```(?:json)?", "", text, flags=re.IGNORECASE).strip()
-        candidates.append(cleaned)
+            # Raw text without fences
+            cleaned = re.sub(r"```(?:json)?", "", source, flags=re.IGNORECASE).strip()
+            candidates.append(cleaned)
 
-        # Try finding array bounds
-        start = cleaned.find("[")
-        end = cleaned.rfind("]")
-        if start != -1 and end > start:
-            candidates.append(cleaned[start:end + 1])
+            # Bracket-matched substrings
+            candidates.extend(_find_json_arrays(cleaned))
 
-        for candidate in candidates:
-            candidate = candidate.strip()
-            if not candidate:
+            # First-[ to last-]
+            start_arr = cleaned.find("[")
+            end_arr = cleaned.rfind("]")
+            if start_arr != -1 and end_arr > start_arr:
+                candidates.append(cleaned[start_arr:end_arr + 1])
+
+            # Object bounds fallback (if it's wrapped, e.g. {"topics": [...]})
+            candidates.extend(_find_json_objects(cleaned))
+            start_obj = cleaned.find("{")
+            end_obj = cleaned.rfind("}")
+            if start_obj != -1 and end_obj > start_obj:
+                candidates.append(cleaned[start_obj:end_obj + 1])
+
+            for candidate in candidates:
+                candidate = candidate.strip()
+                if not candidate:
+                    continue
+
+                # Standard JSON
+                try:
+                    parsed = json.loads(candidate)
+                    if isinstance(parsed, list):
+                        return parsed
+                    if isinstance(parsed, dict):
+                        # Try to find any list of dicts inside
+                        for val in parsed.values():
+                            if isinstance(val, list) and len(val) > 0 and all(isinstance(x, dict) for x in val):
+                                return val
+                        for key in ("topics", "results", "data", "content"):
+                            if key in parsed and isinstance(parsed[key], list):
+                                return parsed[key]
+                        return [parsed]
+                except json.JSONDecodeError:
+                    pass
+
+                # Python literal eval fallback
+                try:
+                    import ast
+                    candidate_py = _convert_to_python_literals(candidate)
+                    parsed = ast.literal_eval(candidate_py)
+                    if isinstance(parsed, list):
+                        return parsed
+                    if isinstance(parsed, dict):
+                        for val in parsed.values():
+                            if isinstance(val, list) and len(val) > 0 and all(isinstance(x, dict) for x in val):
+                                return val
+                        for key in ("topics", "results", "data", "content"):
+                            if key in parsed and isinstance(parsed[key], list):
+                                return parsed[key]
+                        return [parsed]
+                except Exception:
+                    pass
+
+            return None
+
+        # Pass 1: Try raw candidates as-is
+        res = _try_parse_candidates(text)
+        if res is not None:
+            return res
+
+        # Pass 2: Clean the text and retry
+        cleaned_text = _clean_json_string(text)
+        return _try_parse_candidates(cleaned_text)
+
+
+# ── Standalone JSON sanitization/matching helper functions ──
+
+def _clean_json_string(s: str) -> str:
+    """Clean comments, trailing commas, and normalize quotes in JSON string."""
+    # 1. Normalize smart quotes first
+    s = s.replace("\u201c", '"').replace("\u201d", '"')
+    s = s.replace("\u2018", "'").replace("\u2019", "'")
+    
+    # 2. Tokenize into strings, comments, and structural JSON
+    token_pattern = re.compile(
+        r'(?P<double_string>"(?:[^"\\]|\\.)*")|'
+        r'(?P<single_string>\'(?:[^\'\\]|\\.)*\')|'
+        r'(?P<block_comment>\/\*[\s\S]*?\*\/)|'
+        r'(?P<line_comment>\/\/[^\n]*)|'
+        r'(?P<other>[^"\'/]+|/)'
+    )
+    
+    tokens = []
+    for match in token_pattern.finditer(s):
+        gd = match.groupdict()
+        if gd['double_string']:
+            val = gd['double_string']
+            if len(val) >= 2:
+                q = val[0]
+                inner = val[1:-1]
+                inner = inner.replace('\n', '\\n').replace('\t', '\\t').replace('\r', '\\r')
+                val = q + inner + q
+            tokens.append(('string', val))
+        elif gd['single_string']:
+            val = gd['single_string']
+            if len(val) >= 2:
+                q = val[0]
+                inner = val[1:-1]
+                inner = inner.replace('\n', '\\n').replace('\t', '\\t').replace('\r', '\\r')
+                val = q + inner + q
+            tokens.append(('string', val))
+        elif gd['block_comment'] or gd['line_comment']:
+            tokens.append(('whitespace', ' '))
+        else:
+            other_text = gd['other']
+            other_text = re.sub(r'=\s*([\w_-]+)\s*:', r'"\1":', other_text)
+            tokens.append(('other', other_text))
+            
+    # 3. Clean equal signs where key is quoted: e.g. = "key" : -> "key" :
+    i = 0
+    while i < len(tokens):
+        if tokens[i][0] == 'other':
+            val = tokens[i][1]
+            val_stripped = val.rstrip()
+            if val_stripped.endswith('='):
+                next_idx = i + 1
+                while next_idx < len(tokens) and tokens[next_idx][0] == 'whitespace':
+                    next_idx += 1
+                
+                if next_idx < len(tokens) and tokens[next_idx][0] == 'string':
+                    colon_idx = next_idx + 1
+                    while colon_idx < len(tokens) and tokens[colon_idx][0] == 'whitespace':
+                        colon_idx += 1
+                    
+                    if colon_idx < len(tokens) and tokens[colon_idx][0] == 'other' and tokens[colon_idx][1].lstrip().startswith(':'):
+                        trailing_whitespace = val[len(val_stripped):]
+                        tokens[i] = ('other', val_stripped[:-1] + trailing_whitespace)
+        i += 1
+
+    # 4. Rebuild the string while omitting trailing commas
+    result_parts = []
+    for i, (tok_type, tok_val) in enumerate(tokens):
+        if tok_type == 'other' and tok_val.strip() == ',':
+            next_idx = i + 1
+            is_trailing = False
+            while next_idx < len(tokens):
+                next_type, next_val = tokens[next_idx]
+                if next_type == 'whitespace':
+                    next_idx += 1
+                    continue
+                if next_type == 'other':
+                    val_strip = next_val.strip()
+                    if not val_strip:
+                        next_idx += 1
+                        continue
+                    if val_strip[0] in ('}', ']'):
+                        is_trailing = True
+                    break
+                break
+            if is_trailing:
                 continue
-            # Normalize smart quotes
-            candidate = candidate.replace("\u201c", '"').replace("\u201d", '"')
-            candidate = candidate.replace("\u2018", "'").replace("\u2019", "'")
-            try:
-                parsed = json.loads(candidate)
-                if isinstance(parsed, list):
-                    return parsed
-                if isinstance(parsed, dict):
-                    # Maybe it's wrapped: {"topics": [...]}
-                    for key in ("topics", "results", "data", "content"):
-                        if key in parsed and isinstance(parsed[key], list):
-                            return parsed[key]
-                    return [parsed]
-            except json.JSONDecodeError:
-                continue
-        return None
+        
+        if tok_type == 'other':
+            tok_val = re.sub(r',(\s*[\]}])', r'\1', tok_val)
+            
+        result_parts.append(tok_val)
+        
+    return "".join(result_parts).strip()
+
+
+def _convert_to_python_literals(s: str) -> str:
+    """Map true/false/null inside non-string regions to Python True/False/None."""
+    token_pattern = re.compile(
+        r'(?P<double_string>"(?:[^"\\]|\\.)*")|'
+        r'(?P<single_string>\'(?:[^\'\\]|\\.)*\')|'
+        r'(?P<block_comment>\/\*[\s\S]*?\*\/)|'
+        r'(?P<line_comment>\/\/[^\n]*)|'
+        r'(?P<other>[^"\'/]+|/)'
+    )
+    tokens = []
+    for match in token_pattern.finditer(s):
+        gd = match.groupdict()
+        if gd['double_string']:
+            tokens.append(gd['double_string'])
+        elif gd['single_string']:
+            tokens.append(gd['single_string'])
+        elif gd['block_comment']:
+            tokens.append(gd['block_comment'])
+        elif gd['line_comment']:
+            tokens.append(gd['line_comment'])
+        else:
+            other_text = gd['other']
+            other_text = re.sub(r'\btrue\b', 'True', other_text)
+            other_text = re.sub(r'\bfalse\b', 'False', other_text)
+            other_text = re.sub(r'\bnull\b', 'None', other_text)
+            tokens.append(other_text)
+    return "".join(tokens)
+
+
+def _find_json_objects(text: str) -> list[str]:
+    """Find and extract potential JSON object substrings by matching braces."""
+    results = []
+    start = -1
+    brace_count = 0
+    in_string = False
+    escape = False
+    
+    for i, char in enumerate(text):
+        if char == '"' and not escape:
+            in_string = not in_string
+        if in_string:
+            if char == '\\' and not escape:
+                escape = True
+            else:
+                escape = False
+            continue
+            
+        if char == '{':
+            if brace_count == 0:
+                start = i
+            brace_count += 1
+        elif char == '}':
+            if brace_count > 0:
+                brace_count -= 1
+                if brace_count == 0 and start != -1:
+                    results.append(text[start:i+1])
+                    start = -1
+    return results
+
+
+def _find_json_arrays(text: str) -> list[str]:
+    """Find and extract potential JSON array substrings by matching brackets."""
+    results = []
+    start = -1
+    bracket_count = 0
+    in_string = False
+    escape = False
+    
+    for i, char in enumerate(text):
+        if char == '"' and not escape:
+            in_string = not in_string
+        if in_string:
+            if char == '\\' and not escape:
+                escape = True
+            else:
+                escape = False
+            continue
+            
+        if char == '[':
+            if bracket_count == 0:
+                start = i
+            bracket_count += 1
+        elif char == ']':
+            if bracket_count > 0:
+                bracket_count -= 1
+                if bracket_count == 0 and start != -1:
+                    results.append(text[start:i+1])
+                    start = -1
+    return results

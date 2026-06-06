@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from api.dependencies import init_system, close_system, get_logger
-from api.routes import pipeline, memory, events, carousel, creative
+from api.routes import pipeline, memory, events, carousel, creative, auth
 
 
 @asynccontextmanager
@@ -50,6 +50,20 @@ app.include_router(memory.router)
 app.include_router(events.router)
 app.include_router(carousel.router)
 app.include_router(creative.router)
+app.include_router(auth.router)
+
+
+from fastapi.responses import JSONResponse
+import traceback
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    return JSONResponse(
+        status_code=500,
+        content={"detail": str(exc), "traceback": tb}
+    )
+
 
 
 @app.middleware("http")

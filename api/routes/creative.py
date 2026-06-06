@@ -5,14 +5,16 @@ Completely separate from pipeline routes. Own prefix: /creative/
 
 from __future__ import annotations
 
+import os
 import uuid
 from typing import Any, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 
 from contentforge.creative_manager.db import CreativeManagerDB
 from contentforge.creative_manager.engine import CreativeManagerEngine
+from api.routes.auth import get_current_user
 
 router = APIRouter(prefix="/creative", tags=["creative-manager"])
 
@@ -24,7 +26,8 @@ _engine = CreativeManagerEngine()
 def _get_db() -> CreativeManagerDB:
     global _db
     if _db is None:
-        _db = CreativeManagerDB(db_path="data/creative_manager.db")
+        db_path = "/tmp/creative_manager.db" if os.getenv("VERCEL") == "1" else "data/creative_manager.db"
+        _db = CreativeManagerDB(db_path=db_path)
         _db.initialize()
     return _db
 
@@ -73,7 +76,7 @@ class SessionResponse(BaseModel):
 # ── Endpoints ──
 
 @router.post("/start", response_model=StartSessionResponse)
-async def start_session(req: StartSessionRequest):
+async def start_session(req: StartSessionRequest, user_id: str = Depends(get_current_user)):
     """Start a new Creative Manager session for a week."""
     db = _get_db()
 
@@ -85,6 +88,7 @@ async def start_session(req: StartSessionRequest):
         week_id=req.week_id,
         niche=req.niche,
         research_prompt=prompt,
+        user_id=user_id,
     )
 
     return StartSessionResponse(
@@ -97,12 +101,12 @@ async def start_session(req: StartSessionRequest):
 
 
 @router.get("/{session_id}/status", response_model=SessionResponse)
-async def get_session_status(session_id: str):
+async def get_session_status(session_id: str, user_id: str = Depends(get_current_user)):
     """Get full session status with topics and plan."""
     db = _get_db()
-    session = db.get_session(session_id)
+    session = db.get_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or not owned by you")
 
     topics = db.get_topics(session_id)
     plan = db.get_plan(session_id)
@@ -121,12 +125,12 @@ async def get_session_status(session_id: str):
 
 
 @router.post("/{session_id}/submit-research")
-async def submit_research(session_id: str, req: SubmitResearchRequest):
+async def submit_research(session_id: str, req: SubmitResearchRequest, user_id: str = Depends(get_current_user)):
     """Submit pasted research text. Parses topics and scores them."""
     db = _get_db()
-    session = db.get_session(session_id)
+    session = db.get_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or not owned by you")
 
     topics = _engine.parse_topics(req.raw_research)
     if not topics:
@@ -148,12 +152,12 @@ async def submit_research(session_id: str, req: SubmitResearchRequest):
 
 
 @router.post("/{session_id}/select-topics")
-async def select_topics(session_id: str, req: SelectTopicsRequest):
+async def select_topics(session_id: str, req: SelectTopicsRequest, user_id: str = Depends(get_current_user)):
     """User selects which topics to include in the weekly plan."""
     db = _get_db()
-    session = db.get_session(session_id)
+    session = db.get_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or not owned by you")
 
     db.select_topics(session_id, req.topic_ids)
 
@@ -161,12 +165,12 @@ async def select_topics(session_id: str, req: SelectTopicsRequest):
 
 
 @router.post("/{session_id}/plan-week")
-async def plan_week(session_id: str):
+async def plan_week(session_id: str, user_id: str = Depends(get_current_user)):
     """Generate the weekly content calendar from selected topics."""
     db = _get_db()
-    session = db.get_session(session_id)
+    session = db.get_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or not owned by you")
 
     all_topics_raw = db.get_topics(session_id)
     # Filter to selected only
@@ -216,22 +220,22 @@ async def plan_week(session_id: str):
 
 
 @router.put("/{session_id}/update-plan")
-async def update_plan(session_id: str, req: UpdatePlanRequest):
+async def update_plan(session_id: str, req: UpdatePlanRequest, user_id: str = Depends(get_current_user)):
     """Update a specific day in the plan."""
     db = _get_db()
-    session = db.get_session(session_id)
+    session = db.get_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Session not found")
+        raise HTTPException(status_code=404, detail="Session not found or not owned by you")
 
     db.update_plan_day(req.plan_id, req.updates)
     return {"status": "ok"}
 
 
 @router.get("/sessions")
-async def list_sessions(limit: int = 20):
+async def list_sessions(limit: int = 20, user_id: str = Depends(get_current_user)):
     """List all Creative Manager sessions."""
     db = _get_db()
-    sessions = db.list_sessions(limit=limit)
+    sessions = db.list_sessions(user_id=user_id, limit=limit)
     return {"sessions": sessions}
 
 
@@ -278,7 +282,7 @@ class QuickChatRequest(BaseModel):
 
 
 @router.post("/quick/start")
-async def quick_start(req: QuickStartRequest):
+async def quick_start(req: QuickStartRequest, user_id: str = Depends(get_current_user)):
     """Step 1: Start a new Quick Prompt session.
 
     Two paths:
@@ -324,6 +328,7 @@ async def quick_start(req: QuickStartRequest):
             structured_intent=intent.model_dump(),
             content_filter=req.content_filter,
             discovery_prompt="",
+            user_id=user_id,
         )
         db.update_quick_session(
             session_id,
@@ -355,6 +360,7 @@ async def quick_start(req: QuickStartRequest):
             structured_intent=intent.model_dump(),
             content_filter=req.content_filter,
             discovery_prompt=discovery_prompt,
+            user_id=user_id,
         )
         db.update_quick_session(
             session_id,
@@ -374,14 +380,14 @@ async def quick_start(req: QuickStartRequest):
 
 
 @router.post("/quick/{session_id}/submit-topics")
-async def quick_submit_topics(session_id: str, req: QuickSubmitTopicsRequest):
+async def quick_submit_topics(session_id: str, req: QuickSubmitTopicsRequest, user_id: str = Depends(get_current_user)):
     """Step 2→3: Parse pasted topics JSON and show discovered topics for selection."""
     db = _get_db()
     interpreter = _get_interpreter()
 
-    session = db.get_quick_session(session_id)
+    session = db.get_quick_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Quick prompt session not found")
+        raise HTTPException(status_code=404, detail="Quick prompt session not found or not owned by you")
 
     topics = interpreter.parse_discovered_topics(req.raw_json)
     if not topics:
@@ -405,14 +411,14 @@ async def quick_submit_topics(session_id: str, req: QuickSubmitTopicsRequest):
 
 
 @router.post("/quick/{session_id}/select-topic")
-async def quick_select_topic(session_id: str, req: QuickSelectTopicRequest):
+async def quick_select_topic(session_id: str, req: QuickSelectTopicRequest, user_id: str = Depends(get_current_user)):
     """Step 3→4: User selects a topic, pipeline generates deep research prompt."""
     db = _get_db()
     interpreter = _get_interpreter()
 
-    session = db.get_quick_session(session_id)
+    session = db.get_quick_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Quick prompt session not found")
+        raise HTTPException(status_code=404, detail="Quick prompt session not found or not owned by you")
 
     discovered = session.get("discovered_topics", [])
     if not discovered:
@@ -461,16 +467,16 @@ async def quick_select_topic(session_id: str, req: QuickSelectTopicRequest):
 
 
 @router.post("/quick/{session_id}/submit-research")
-async def quick_submit_research(session_id: str, req: QuickResearchRequest):
+async def quick_submit_research(session_id: str, req: QuickResearchRequest, user_id: str = Depends(get_current_user)):
     """Step 4→5: Parse deep research JSON into day-wise plan."""
     db = _get_db()
     interpreter = _get_interpreter()
 
-    session = db.get_quick_session(session_id)
+    session = db.get_quick_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Quick prompt session not found")
+        raise HTTPException(status_code=404, detail="Quick prompt session not found or not owned by you")
 
-    plan = interpreter.parse_series_research(req.raw_research)
+    plan, err_msg = await interpreter.parse_series_research(req.raw_research)
     if not plan:
         try:
             with open("data/failed_research.txt", "w", encoding="utf-8") as f:
@@ -479,7 +485,7 @@ async def quick_submit_research(session_id: str, req: QuickResearchRequest):
             pass
         raise HTTPException(
             status_code=400,
-            detail="Could not parse the research. Make sure it's valid JSON with a 'days' array."
+            detail=f"Could not parse the research. Details: {err_msg or 'Make sure it is valid JSON with a days array.'}"
         )
 
     # Merge intent from session
@@ -501,7 +507,7 @@ async def quick_submit_research(session_id: str, req: QuickResearchRequest):
 
 
 @router.post("/quick/{session_id}/chat")
-async def quick_chat_edit(session_id: str, req: QuickChatRequest):
+async def quick_chat_edit(session_id: str, req: QuickChatRequest, user_id: str = Depends(get_current_user)):
     """Chat edit — available at ALL stages after step 1.
 
     Handles both plan edits (when a plan exists) and general conversation.
@@ -510,9 +516,9 @@ async def quick_chat_edit(session_id: str, req: QuickChatRequest):
     db = _get_db()
     interpreter = _get_interpreter()
 
-    session = db.get_quick_session(session_id)
+    session = db.get_quick_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Quick prompt session not found")
+        raise HTTPException(status_code=404, detail="Quick prompt session not found or not owned by you")
 
     chat_history = session.get("chat_history", [])
 
@@ -570,14 +576,14 @@ async def quick_chat_edit(session_id: str, req: QuickChatRequest):
 
 
 @router.post("/quick/{session_id}/approve")
-async def quick_approve(session_id: str):
+async def quick_approve(session_id: str, user_id: str = Depends(get_current_user)):
     """Step 5→6: Approve the plan and generate a production-ready prompt."""
     db = _get_db()
     interpreter = _get_interpreter()
 
-    session = db.get_quick_session(session_id)
+    session = db.get_quick_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Quick prompt session not found")
+        raise HTTPException(status_code=404, detail="Quick prompt session not found or not owned by you")
 
     plan_raw = session.get("series_plan", {})
     if not plan_raw or not plan_raw.get("days"):
@@ -611,19 +617,19 @@ async def quick_approve(session_id: str):
 
 
 @router.get("/quick/{session_id}/status")
-async def quick_status(session_id: str):
+async def quick_status(session_id: str, user_id: str = Depends(get_current_user)):
     """Get full Quick Prompt session status."""
     db = _get_db()
-    session = db.get_quick_session(session_id)
+    session = db.get_quick_session(session_id, user_id=user_id)
     if not session:
-        raise HTTPException(status_code=404, detail="Quick prompt session not found")
+        raise HTTPException(status_code=404, detail="Quick prompt session not found or not owned by you")
     return session
 
 
 @router.get("/quick/sessions")
-async def list_quick_sessions(limit: int = 20):
+async def list_quick_sessions(limit: int = 20, user_id: str = Depends(get_current_user)):
     """List all Quick Prompt sessions for dashboard."""
     db = _get_db()
-    sessions = db.list_quick_sessions(limit=limit)
+    sessions = db.list_quick_sessions(user_id=user_id, limit=limit)
     return {"sessions": sessions}
 

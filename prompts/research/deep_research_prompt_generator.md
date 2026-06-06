@@ -88,12 +88,13 @@ AI-inspired
 bold-business
 modern-analytical
 
-THEME DIFFERENTIATION RULES
+THEME DIFFERENTIATION & TOPIC-THEMED DESIGN RULES
 
 The generated prompt MUST explicitly instruct:
 
-EVERY topic must have a UNIQUE visual theme.
-Themes should NOT feel visually repetitive.
+EVERY topic must have a UNIQUE visual theme and styling.
+Themes should emerge naturally from the topic and NOT feel visually repetitive.
+Choose color systems, typography styles, and component accents that uniquely reflect the topic's identity. For example, if the topic is "Anthropic Claude", use Claude's warm beige/orange brand palette and elegant serifs. If the topic is "Python", use blue and yellow. If a coding topic, style components like a developer terminal; if finance, Bloomberg dashboard styling.
 Every topic should use different:
 color systems
 typography moods
@@ -103,6 +104,7 @@ spacing feel
 editorial direction
 visual hierarchy
 Themes must still remain premium, modern, clean, and visually appealing.
+
 
 Examples:
 

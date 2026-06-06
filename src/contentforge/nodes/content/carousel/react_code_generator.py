@@ -168,9 +168,9 @@ def _render_component(comp: dict, accent: str, text_color: str, bg: str) -> str:
         return f'''<div style="
             display:grid;grid-template-columns:repeat(3,1fr);gap:10px;opacity:{opacity};
         ">
-            <div style="text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);font-size:24px;">⚡</div>
-            <div style="text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);font-size:24px;">🎯</div>
-            <div style="text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);font-size:24px;">🚀</div>
+            <div style="text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);font-size:16px;font-weight:bold;color:{accent};border:1.5px solid {accent}33;">01</div>
+            <div style="text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);font-size:16px;font-weight:bold;color:{accent};border:1.5px solid {accent}33;">02</div>
+            <div style="text-align:center;padding:12px;border-radius:10px;background:rgba(255,255,255,0.04);font-size:16px;font-weight:bold;color:{accent};border:1.5px solid {accent}33;">03</div>
         </div>'''
 
     # Fallback: generic card component
@@ -328,7 +328,7 @@ def _build_image_slot(
             display:flex;align-items:center;justify-content:center;position:relative;
         ">
             <label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:8px;width:100%;height:100%;justify-content:center;">
-                <span style="font-size:28px;">🖼️</span>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="opacity:0.5;margin-bottom:4px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
                 <span style="font-size:12px;opacity:0.5;line-height:1.35;max-width:280px;">{_esc(visual_concept)}</span>
                 <input type="file" accept="image/*" style="display:none;" />
             </label>
@@ -661,10 +661,10 @@ class ReactCodeGenerator(BaseNode):
                 </div>'''
             elif show_badge:
                 type_labels = {
-                    "data": "📊 DATA",
-                    "comparison": "⚖️ COMPARE",
-                    "timeline": "📅 TIMELINE",
-                    "summary": "📋 SUMMARY",
+                    "data": "DATA",
+                    "comparison": "COMPARE",
+                    "timeline": "TIMELINE",
+                    "summary": "SUMMARY",
                     "content": f"SLIDE {slide_num}",
                 }
                 badge_text = type_labels.get(slide_type, f"SLIDE {slide_num}")
@@ -761,7 +761,7 @@ class ReactCodeGenerator(BaseNode):
                     text-align:center;height:100%;padding:40px {px};box-sizing:border-box;flex:1;gap:20px;">
                     <span style="font-size:15px;font-weight:900;color:var(--accent);text-transform:uppercase;
                         letter-spacing:4px;display:block;">
-                        🔥 EXCLUSIVE INSIGHT
+                        EXCLUSIVE INSIGHT
                     </span>
                     <div style="font-size:{h_size};line-height:1.12;font-weight:{h_weight};
                         font-family:{h_font};color:var(--text);
@@ -781,7 +781,7 @@ class ReactCodeGenerator(BaseNode):
                     text-align:center;height:100%;padding:40px {px};box-sizing:border-box;flex:1;gap:18px;">
                     <span style="font-size:15px;font-weight:900;color:var(--accent);text-transform:uppercase;
                         letter-spacing:3px;display:block;">
-                        🚀 TAKE ACTION
+                        TAKE ACTION
                     </span>
                     <div style="font-size:{h_size};line-height:1.15;font-weight:900;
                         font-family:{h_font};color:var(--text);
@@ -790,13 +790,13 @@ class ReactCodeGenerator(BaseNode):
                     </div>
                     {"<div style='font-size:28px;line-height:1.55;font-family:" + b_font + ";opacity:0.88;max-width:800px;margin-bottom:16px;'>" + body_esc + "</div>" if body_esc else ""}
                     {components_html}
-                    <div style="display:flex;gap:36px;justify-content:center;align-items:center;
+                    <div style="display:flex;gap:40px;justify-content:center;align-items:center;
                         background:rgba(255,255,255,0.03);border:1.5px solid rgba(255,255,255,0.08);
                         border-radius:20px;padding:18px 40px;margin-top:12px;">
-                        <div style="text-align:center;"><span style="font-size:36px;display:block;margin-bottom:4px;">❤️</span><span style="font-size:13px;font-weight:700;opacity:0.8;">Like</span></div>
-                        <div style="text-align:center;"><span style="font-size:36px;display:block;margin-bottom:4px;">💬</span><span style="font-size:13px;font-weight:700;opacity:0.8;">Comment</span></div>
-                        <div style="text-align:center;"><span style="font-size:36px;display:block;margin-bottom:4px;">✈️</span><span style="font-size:13px;font-weight:700;opacity:0.8;">Share</span></div>
-                        <div style="text-align:center;"><span style="font-size:36px;display:block;margin-bottom:4px;">🔖</span><span style="font-size:13px;font-weight:700;color:var(--accent);">Save</span></div>
+                        <div style="text-align:center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 6px;opacity:0.8;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg><span style="font-size:13px;font-weight:700;opacity:0.8;">Like</span></div>
+                        <div style="text-align:center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 6px;opacity:0.8;"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg><span style="font-size:13px;font-weight:700;opacity:0.8;">Comment</span></div>
+                        <div style="text-align:center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 6px;opacity:0.8;"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg><span style="font-size:13px;font-weight:700;opacity:0.8;">Share</span></div>
+                        <div style="text-align:center;"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="display:block;margin:0 auto 6px;"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path></svg><span style="font-size:13px;font-weight:700;color:var(--accent);">Save</span></div>
                     </div>
                 </div>'''
 

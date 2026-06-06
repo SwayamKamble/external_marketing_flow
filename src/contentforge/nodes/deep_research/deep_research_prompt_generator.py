@@ -424,7 +424,10 @@ Do not force dark themes on every topic.
 - Ensure carousel slides from Slide 2 onward have non-empty `heading` and non-empty `body_text` with real, specific facts.
 - Never output placeholder or fallback text like "Content generation fallback" or "Re-run deep research".
 - Include real statistics, data points, and expert insights in the content
+- STRICTLY DO NOT use emojis anywhere in the slides (headings, body text, visual concepts, or slide structures). Avoid all emoji characters (e.g., 🚀, 💡, ⚡, 📊, etc.) to keep the design highly professional and premium.
+- Select a visual theme (colors, fonts, layout styling) that uniquely and directly represents the topic's identity. For example, if the topic is "Anthropic Claude", use warm beige background, dark brown text, soft orange accent colors, and a clean modern serif/sans-serif font pair; if the topic is "Python", use blue/yellow colors. The visual identity must emerge naturally from the topic so each slide deck represents the topic uniquely.
 - The JSON must be valid and parseable
+
 
 - Image Generation Quality:
 

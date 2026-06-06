@@ -16,6 +16,7 @@ import re
 import ast
 from typing import Any
 
+from datetime import datetime
 from contentforge.creative_manager.models import (
     DiscoveredTopic,
     SeriesDay,
@@ -103,9 +104,9 @@ _FILTER_DESCRIPTIONS = {
     },
     "news": {
         "label": "Latest AI & Tech News",
-        "focus": "the most important recent developments, product launches with educational lessons, policy changes, research breakthroughs, and industry shifts that happened in the last 7-14 days — each broken down with analysis of WHY it matters and WHAT to learn from it",
-        "avoid": "old news, generic AI hype, clickbait without substance, rumors",
-        "scoring_priority": "relevance, timeliness, and educational_value must score >= 7",
+        "focus": "the most important, recent, and groundbreaking AI and AI Tech industry developments, product releases, research paper breakthroughs, model launches (e.g. GPT, Claude, Gemini, open-source models), and major tech updates that occurred in the last 7 days — focused purely on the details, facts, features, and capabilities of the news itself",
+        "avoid": "educational tutorials, how-to guides, coding walkthroughs, old news, generic non-AI tech news, non-technical business announcements, funding rumors, celebrity drama",
+        "scoring_priority": "timeliness, relevance, and details_richness must score >= 8",
     },
     "trending_ai": {
         "label": "Trending AI Tools & Techniques",
@@ -144,12 +145,31 @@ def _build_topic_discovery_prompt(series_length: int, content_filter: str, platf
 
     The user copies this to Perplexity and gets back a JSON list of topics.
     """
+    from datetime import datetime
+    current_date = datetime.now().strftime("%B %d, %Y")
     filt = _FILTER_DESCRIPTIONS.get(content_filter, _FILTER_DESCRIPTIONS["educational"])
     plat = _PLATFORM_CONTENT_DESCRIPTIONS.get(platform, _PLATFORM_CONTENT_DESCRIPTIONS["instagram"])
 
-    prompt = f"""You are a senior content strategist for an educational AI & Tech social media brand (@tech_by_pravesh).
+    is_news = content_filter == "news"
+    brand_desc = "a senior content strategist for an AI & Tech news and insights brand (@tech_by_pravesh)" if is_news else "a senior content strategist for an educational AI & Tech social media brand (@tech_by_pravesh)"
 
-Your task: Discover **8-12 trending topics** that would make excellent content for a **{series_length}-day {plat['label']} series**.
+    news_guideline = ""
+    if is_news:
+        news_guideline = """
+## NEWS-ONLY REQUIREMENT:
+- All topics must be PURE AI AND AI TECH NEWS. No generic tech, no educational how-to guides, and no tutorials.
+- Focus purely on the actual news, its technical details, specs, capabilities, and benchmarks.
+- Strictly avoid any educational or tutorial angle. We want pure news and its details.
+"""
+
+    prompt = f"""You are {brand_desc}.
+
+Today's date is **{current_date}**.
+
+## CRITICAL SEARCH INSTRUCTION:
+**YOU MUST SEARCH THE WEB** for the most recent trending news, breakthrough releases, open-source repository launches, and active tech discussions in the AI and AI Tech industry that occurred in the last 7 days leading up to **{current_date}**. Do NOT rely on pre-trained historical knowledge. You must fetch fresh, real-time news and breakthroughs.
+{news_guideline}
+Your task: Discover **8-12 highly engaging trending topics** that would make excellent content for a **{plat['label']} post**. All topics must be fresh, new, and based on breakthroughs, releases, or trends people *love* reading and discussing right now. Do NOT return outdated historical news from previous months/years (like September, etc.).
 
 ## Target Platform: {plat['label']}
 All content will be published exclusively on **{plat['label']}** using formats like {plat['formats']}.
@@ -168,9 +188,8 @@ Content style: {plat['style']}.
 
 ## What Makes a Great Topic?
 
-- It teaches something actionable
 - It has strong audience demand RIGHT NOW
-- It can sustain {series_length} days of content (multiple angles/sub-topics)
+- It can sustain 1-3 detailed slides or a single breakdown post
 - It works exceptionally well on {plat['label']} specifically
 - The audience (developers, AI enthusiasts, tech professionals, students) will save, share, and discuss it
 
@@ -193,15 +212,15 @@ Return a JSON array with 8-12 topics. Each topic:
       "Angle 3: Another sub-topic..."
     ],
     "target_audience": "Who specifically benefits most from this content",
-    "category": "{content_filter}"
+    "category": "{content_filter}",
+    "news_date": "MANDATORY: The exact date when the original news, release, or breakthrough occurred (e.g., June 5, 2026 or 2026-06-05). Do not leave empty."
   }}
 ]
 ```
 
 ## CRITICAL RULES:
 - Return ONLY the JSON array, no other text
-- Each topic must be specific enough to sustain {series_length} days of deep content
-- suggested_angles should have at least 3-5 angles (sub-topics for individual days)
+- **MANDATORY NEWS DATE**: Every topic MUST include the actual historical date when the news or breakthrough originally occurred in the `news_date` field (e.g., "June 5, 2026" or "2026-06-05"). Do not leave this field empty, do not use relative terms like "today" or "recent", and do not use future post calendar scheduling dates.
 - relevance_score is 0-10 based on current trending relevance
 - Topics should be diverse — don't cluster around one narrow area
 - Every topic must be genuinely useful to the target audience
@@ -209,6 +228,7 @@ Return a JSON array with 8-12 topics. Each topic:
 
 Discover the topics now."""
     return prompt
+
 
 
 def _parse_discovered_topics(raw_text: str) -> list[DiscoveredTopic] | None:
@@ -284,7 +304,7 @@ def _parse_discovered_topics(raw_text: str) -> list[DiscoveredTopic] | None:
             relevance_score=float(item.get("relevance_score", item.get("score", 0))),
             suggested_angles=[str(a).strip() for a in item.get("suggested_angles", item.get("angles", []))],
             target_audience=str(item.get("target_audience", "")).strip(),
-            category=str(item.get("category", "")).strip(),
+            news_date=(lambda d: datetime.now().strftime("%B %d, %Y") if not d or d.lower() in ("recent", "today", "now", "current", "latest", "unknown", "n/a", "recent breakthrough") else d)(str(item.get("news_date", "")).strip()),
         ))
 
     return topics if topics else None
@@ -296,6 +316,8 @@ def _build_deep_research_prompt(topic: DiscoveredTopic, series_length: int, cont
     This is similar to _build_research_prompt but with the selected topic baked in.
     Focuses exclusively on the user's chosen platform.
     """
+    from datetime import datetime
+    current_date = datetime.now().strftime("%B %d, %Y")
     filt = _FILTER_DESCRIPTIONS.get(content_filter, _FILTER_DESCRIPTIONS["educational"])
     plat = _PLATFORM_CONTENT_DESCRIPTIONS.get(platform, _PLATFORM_CONTENT_DESCRIPTIONS["instagram"])
     angles_str = "\n".join([f"- {a}" for a in topic.suggested_angles]) if topic.suggested_angles else "- Explore multiple angles and sub-topics"
@@ -308,9 +330,116 @@ def _build_deep_research_prompt(topic: DiscoveredTopic, series_length: int, cont
     }
     content_types = platform_content_types.get(platform, "carousel, reel, or post")
 
+    if content_filter == "news":
+        prompt = f"""You are a senior content strategist for a leading AI & Tech news channel on {plat['label']} (@tech_by_pravesh).
+
+Today's date is **{current_date}**.
+
+Your goal: Generate a detailed **1-day (single post) {plat['label']} news breakdown** about the topic: **"{topic.title}"**.
+
+Make sure all content is highly relevant to the actual news event or breakthrough that occurred on or around **{topic.news_date or current_date}**, referencing specific versions, features, benchmarks, capabilities, and facts. Do NOT use outdated historical information from previous months/years.
+
+## Topic Overview
+- **Title**: {topic.title}
+- **Summary**: {topic.summary}
+- **Why It's Relevant**: {topic.why_trending}
+- **News Release Date**: {topic.news_date or current_date}
+- **Target Audience**: {topic.target_audience or "AI enthusiasts, developers, tech professionals, students"}
+
+## Target Platform: {plat['label']} ONLY
+This news breakdown will be published exclusively on **{plat['label']}**.
+Content formats to use: {content_types}.
+Content style: {plat['style']}.
+Optimize for: {plat['strengths']}.
+
+## Key Aspects to Cover
+{angles_str}
+
+## Core Objective
+Generate a news breakdown that helps the audience:
+- Understand exactly what was released, launched, or discovered (facts, technical specifications, capabilities, and benchmarks)
+- Know the actual release date of the news
+- Understand the technical implications and significance for the AI industry
+- Save/share the post because of its pure utility and clarity on this major breakthrough
+
+---
+
+## Content Strategy Rules
+The content must be **PURE news reporting and technical details**.
+- **NO educational tutorials, no step-by-step how-to guides, and no coding walkthroughs.**
+- Focus purely on the actual facts, specifications, benchmarks, comparisons, and capabilities of this breakthrough.
+- Make it a single post plan (1 day/episode).
+
+---
+
+## Content Quality Requirements
+Every day's content must:
+- Be highly factual and detailed
+- Include the exact release date of the news prominently (e.g. in the caption and as notes/details)
+- Have a compelling hook that stops the scroll
+- Include at least 3 specific key points / features / benchmarks of the news
+- Include a clear call-to-action (CTA)
+
+---
+
+## Required Output Format
+Return a JSON object with this exact structure:
+
+```json
+{{
+  "series_title": "{topic.title}",
+  "series_summary": "Detailed news breakdown of {topic.title}",
+  "days": [
+    {{
+      "day_number": 1,
+      "title": "{topic.title}",
+      "platform": "{platform}",
+      "content_type": "{content_types.split(',')[0].strip()}",
+      "hook": "Attention-grabbing opening line that stops the scroll and highlights the breakthrough",
+      "angle": "Detailed news reporting on the breakthrough",
+      "teaching_goal": "Understand the features and specs of {topic.title}",
+      "key_points": [
+        "Major feature/spec/benchmark 1",
+        "Major feature/spec/benchmark 2",
+        "Major feature/spec/benchmark 3",
+        "Major feature/spec/benchmark 4"
+      ],
+      "talking_points": [
+        "Technical detail and explanation for key point 1",
+        "Technical detail and explanation for key point 2",
+        "Technical detail and explanation for key point 3"
+      ],
+      "slide_outline": [
+        {{
+          "slide_number": 1,
+          "slide_title": "Breaking: Cover hook title",
+          "slide_content": "Brief curiosity generating subtext",
+          "visual_cue": "What graphic/UI mockup to show"
+        }}
+      ],
+      "script": "Voiceover script if reel/video",
+      "caption": "Full social media caption detailing the news with spacing, news date ({topic.news_date or current_date}) and hashtags",
+      "cta": "Clear call-to-action (e.g., Save this for reference, Share with your team)",
+      "notes": "{topic.news_date or current_date}"
+    }}
+  ]
+}}
+```
+
+## CRITICAL RULES
+- Return ONLY the JSON object, no other text
+- Provide exactly 1 day (the single news post) in the "days" array
+- Do NOT add any educational how-to or tutorial steps. Keep it purely factual and details-rich about the news itself.
+"""
+        return prompt
+
     prompt = f"""You are a senior content strategist for an educational AI & Tech brand on {plat['label']} (@tech_by_pravesh).
 
+Today's date is **{current_date}**.
+
 Your goal: Create a detailed **{series_length}-day {plat['label']} content series** about **"{topic.title}"**.
+
+Make sure all content is highly relevant to today's real-world state of this topic as of **{current_date}**, referencing recent versions, model parameters, API updates, or technical practices matching the current AI landscape. Do NOT use outdated historical information from previous months/years.
 
 ## Topic Overview
 - **Title**: {topic.title}
@@ -445,13 +574,17 @@ def _build_research_prompt(intent: StructuredIntent) -> str:
     This mirrors the quality and structure of _RESEARCH_PROMPT from engine.py,
     but tailored to the user's specific series intent.
     """
+    from datetime import datetime
+    current_date = datetime.now().strftime("%B %d, %Y")
     platforms_str = ", ".join(intent.platform_preferences) if intent.platform_preferences else "instagram, linkedin, x"
     goals_str = "\n".join([f"- {g}" for g in intent.educational_goals]) if intent.educational_goals else "- Learn practical skills\n- Understand key concepts\n- Gain actionable knowledge"
     sub_topics_str = "\n".join([f"- {st}" for st in intent.sub_topics]) if intent.sub_topics else ""
 
     prompt = f"""You are a senior content strategist for an educational AI & Tech brand on social media (@tech_by_pravesh).
 
-Your goal: Create a detailed **{intent.series_length}-day content series** about **"{intent.topic_theme}"** that has strong viral potential while delivering genuine educational value.
+Today's date is **{current_date}**.
+
+Your goal: Create a detailed **{intent.series_length}-day content series** about **"{intent.topic_theme}"** that has strong viral potential while delivering genuine educational value. All topics must be highly relevant to today's state of the AI & Tech landscape as of **{current_date}**.
 
 ## Series Overview
 - **Theme**: {intent.topic_theme}
@@ -653,6 +786,58 @@ def _build_production_prompt(plan: SeriesPlan) -> str:
     platform = getattr(intent, "platform", "instagram") or "instagram"
     plat = _PLATFORM_CONTENT_DESCRIPTIONS.get(platform, _PLATFORM_CONTENT_DESCRIPTIONS["instagram"])
 
+    if intent.content_filter == "news" and plan.days:
+        day = plan.days[0]
+        prompt = f"""# Production Instructions for News Slide Deck in HTML/CSS/JS
+
+After reviewing the news details below, you MUST generate a complete, self-contained HTML/CSS/JS file for a **3-4 slide carousel** presenting this news breakthrough.
+
+## Topic Details
+- **News Title**: {day.title}
+- **News Hook**: "{day.hook}"
+- **News Details & Facts**:
+{chr(10).join([f'  - {kp}' for kp in day.key_points])}
+- **Implications & Rationale**: {day.angle}
+- **News Date**: {day.notes or intent.topic_theme}
+- **CTA**: {day.cta}
+
+---
+
+## CRITICAL CODE OUTPUT REQUIREMENTS:
+1. **Slide Generation Stack**: Write this slide deck entirely in a **single, unified HTML file** using inline CSS and JS.
+2. **Strict Layout Constraint (NO OVERLAPS & PERFECT ALIGNMENT)**:
+   - You MUST ensure that no components, text blocks, badges, boxes, or graphic panels overlap each other.
+   - Use CSS Flexbox or CSS Grid layouts exclusively.
+   - Avoid raw `position: absolute` for key text blocks. Use padding, margins, and gaps to separate elements cleanly.
+   - Set fixed height containers for visual diagrams and frames (e.g. IDE frames, metric boxes) to prevent them from growing and colliding with text elements.
+   - The visual elements and layout alignment must be absolutely perfect and highly premium.
+3. **Slide Dimensions**: Enforce standard vertical dimensions: **1080px wide x 1350px tall** (4:5 aspect ratio).
+4. **Export ZIP Script**: Include a sticky control toolbar at the top of the body with a "Download All Slides (ZIP)" button. This button must call a fully functional Javascript `downloadAllJPGs()` script that uses `html2canvas` and `jszip` CDNs (included in the head) to capture all slide elements and pack them into a zip file of JPGs.
+5. **Slide Count**: Keep the deck to **exactly 3-4 slides** (Slide 1: Hook, Slide 2: Core News, Slide 3: Implications, Slide 4: CTA).
+6. **Strict Emoji Prohibition**: STRICTLY DO NOT use emojis anywhere in the HTML slide deck (including slide titles, subheadings, body text, lists, labels, badges, or buttons). Emojis look unpolished and generic. Avoid characters like 🚀, 💡, ⚡, 📊, etc.
+7. **Topic-Themed Aesthetics & Components**: Read the topic/subject of the slides and choose a visual theme (color scheme, typography, custom icons, borders, and layouts) that uniquely fits the topic's brand identity. For example, if the topic is "Anthropic Claude", use Claude's signature warm beige background, dark brown text, soft orange accents, and a clean serif font for the headers/logos. If "Python", use Python yellow/blue. If it's a developer tool, style cards like clean terminals; if business/finance, use dashboard KPI styling. Customize components and layout accents around the logo/handle area specifically to match the topic's visual universe so the deck represents it uniquely.
+
+
+---
+
+## Premium Visual Component Guidelines:
+- **IDE Code Snippet Frame**: If coding or repo-related, display code in a mock macOS window controls box with syntax highlighting.
+- **Metric Badges/Cards**: Large high-impact bold metrics (e.g., "10x Faster", "+150% Spec") with small descriptive labels.
+- **Alert/Warning Callout Box**: Accent card with warning/alert icon.
+- **Swipe Indicators**: Chevron icons at bottom of slides 1-3.
+- **Brand Handle**: "@tech_by_pravesh" at top of all slides.
+
+---
+
+## Output instructions:
+- Generate the complete HTML file enclosed in a ```html code block.
+- Follow the HTML code block with the complete caption block labeled exactly: `### Final Social Media Caption:`
+- Ensure the caption is structured with short, double-spaced paragraphs, references the news release date, includes 3-5 relevant hashtags, and ends with the CTA.
+
+Generate the HTML and caption now.
+"""
+        return prompt
+
     days_detail = []
     for day in plan.days:
         day_block = f"""
@@ -737,7 +922,10 @@ For each Instagram carousel day, you MUST generate the slides as a single, self-
 
 **Slide Size & Dimensions:** Enforce standard vertical dimensions (1080px wide x 1350px tall, 4:5 aspect ratio) for maximum screen coverage and visual impact on mobile feeds.
 
-**Visual Theme Consistency Mandate:** Because this content is generated as a unified {num_days}-day series, the visual theme MUST remain absolutely **consistent and cohesive** across all {num_days} days. Keep the same background style, typography hierarchy, logo/handle placement, and color palette (primary and accent colors, dark/light theme style) across all days to maintain a recognizable, high-premium brand identity. The theme must directly complement the overall series topic/theme: **'{topic}'**.
+**Visual Theme Consistency Mandate:** Because this content is generated as a unified {num_days}-day series, the visual theme MUST remain absolutely **consistent and cohesive** across all {num_days} days. Keep the same background style, typography hierarchy, logo/handle placement, and color palette (primary and accent colors, dark/light theme style) across all days to maintain a recognizable, high-premium brand identity. The theme must directly complement the overall series topic/theme: **'{topic}'**. Read the topic/subject of the slides and dynamically choose a color palette, fonts, and component stylings that uniquely represent that topic's identity (e.g., Anthropic Claude → warm beige background, dark brown text, soft orange accent, serif font; Python → yellow/blue; developer tool → terminal mock; business → dashboard metrics). Enforce these topic-specific aesthetics consistently around the logo, header, card borders, and tags so each deck represents the topic uniquely.
+
+**Strict Emoji Prohibition:** STRICTLY DO NOT use emojis anywhere in the slide HTML or CSS (headings, body text, tag labels, or custom panels). Emojis are unpolished and generic. Do not output characters like 🚀, 💡, ⚡, etc.
+
 
 **Premium Visual Component Library:** While the visual theme must be identical across all days, you must use a diverse set of premium components on different slides to keep the reader engaged. Define and specify distinct component styles for:
 - **IDE Code Snippet Frames**: A clean IDE code block with mock macOS-style window controls (red/yellow/green buttons) and syntax highlighting for code examples.
@@ -1111,12 +1299,114 @@ class PromptInterpreter:
         """
         return _build_deep_research_prompt(topic, series_length, content_filter, platform)
 
-    def parse_series_research(self, raw_text: str) -> SeriesPlan | None:
+    def _get_gateway(self):
+        """Get the global LLMGateway or initialize a fallback one."""
+        try:
+            from api.dependencies import get_llm
+            return get_llm()
+        except (AssertionError, ImportError, KeyError):
+            # Fallback for standalone CLI/scripts
+            import os
+            from contentforge.core.config_loader import ConfigLoader
+            from contentforge.core.llm_gateway import LLMGateway
+            
+            config_dir = "config"
+            if not os.path.exists(config_dir) and os.path.exists("./config"):
+                config_dir = "./config"
+            elif not os.path.exists(config_dir) and os.path.exists("../config"):
+                config_dir = "../config"
+                
+            config = ConfigLoader(config_dir=config_dir)
+            return LLMGateway(config=config)
+
+    async def parse_series_research(self, raw_text: str) -> tuple[SeriesPlan | None, str | None]:
         """Parse JSON output from Claude/Perplexity into a structured SeriesPlan.
 
         Handles various JSON formats including fenced code blocks, wrapped objects,
-        and raw arrays.
+        and raw arrays. Uses an LLM fallback if standard parsing fails to recover
+        malformed or raw conversational text.
         """
+        # --- Pass 1: Try standard fast parsing first ---
+        plan, fast_error = self._parse_series_research_fast(raw_text)
+        if plan:
+            return plan, None
+
+        # --- Pass 2: LLM Recovery Fallback ---
+        errors = [f"Fast parsing failed: {fast_error}"]
+        print(f"[PromptInterpreter] Fast JSON parsing failed: {fast_error}. Invoking LLM recovery fallback...")
+        try:
+            gateway = self._get_gateway()
+            model = gateway.config.get_llm_config().get("default_model", "gpt-5-chat")
+            
+            system_prompt = """You are an expert JSON recovery assistant.
+Your job is to parse and convert the user's pasted research text (which might be raw text, markdown, or malformed JSON) into a clean, valid JSON object following this exact schema:
+
+{
+  "series_title": "Descriptive series title",
+  "series_summary": "2-3 sentence overview of what this series teaches",
+  "days": [
+    {
+      "day_number": 1,
+      "title": "Clear, specific topic title for this day",
+      "platform": "instagram/linkedin/x",
+      "content_type": "carousel/reel/thread/post",
+      "hook": "Attention-grabbing opening line",
+      "angle": "Content angle",
+      "teaching_goal": "What they learn",
+      "key_points": ["point 1", "point 2", ...],
+      "talking_points": ["point 1 detail", "point 2 detail", ...],
+      "slide_outline": [
+        {
+          "slide_number": 1,
+          "slide_title": "Slide title",
+          "slide_content": "Slide content",
+          "visual_cue": "Visual cue"
+        }
+      ],
+      "script": "Script voiceover",
+      "caption": "Full social media caption",
+      "cta": "Call to action",
+      "notes": "Any extra notes"
+    }
+  ]
+}
+
+Rules:
+1. Ensure the output is strictly valid JSON.
+2. If the user input contains multiple days, map each day to an element in the "days" array. If it is only 1 day, "days" must contain exactly 1 element.
+3. Extract as much factual information, key points, slides, caption, script, hooks, and CTAs as possible from the source text.
+4. Output ONLY the raw JSON block inside ```json and ``` fences. Do not output any explanation, intro, or markdown text outside the code block.
+"""
+
+            result = await gateway.call(
+                node_name="research_recovery",
+                system_prompt=system_prompt,
+                user_message=f"User Input:\n{raw_text}",
+                model=model,
+                temperature=0.1,
+                max_tokens=4096,
+            )
+            
+            if not result.success:
+                errors.append(f"LLM API Call unsuccessful: {result.error}")
+            else:
+                recovered_text = result.content
+                print(f"[PromptInterpreter] LLM recovery returned response of length {len(recovered_text)}")
+                
+                # Try parsing the recovered text
+                plan, recovery_error = self._parse_series_research_fast(recovered_text)
+                if plan:
+                    print("[PromptInterpreter] LLM recovery successfully parsed SeriesPlan!")
+                    return plan, None
+                else:
+                    errors.append(f"LLM recovery text parsing failed: {recovery_error}. LLM output preview: {recovered_text[:200]}")
+        except Exception as e:
+            errors.append(f"LLM Recovery exception: {e}")
+
+        return None, " | ".join(errors)
+
+    def _parse_series_research_fast(self, raw_text: str) -> tuple[SeriesPlan | None, str | None]:
+        """Fast synchronous parsing of research text."""
         parsed = self._extract_json_object(raw_text)
         if not parsed:
             # Try as array
@@ -1124,19 +1414,37 @@ class PromptInterpreter:
             if parsed_arr:
                 parsed = {"days": parsed_arr}
             else:
-                return None
+                try:
+                    # Let's get raw decode error info for debugging
+                    json.loads(raw_text)
+                except Exception as e:
+                    return None, f"JSON Syntax Error: {e}"
+                return None, "No JSON object or array could be extracted from input"
 
         # Extract days
         days_raw = parsed.get("days", [])
         
         # Fallback 1: Search common alternative keys if days is not a list or is empty
         if not isinstance(days_raw, list) or not days_raw:
-            for key in ["content_series", "series", "plan", "posts", "schedule", "weekly_plan", "items"]:
+            alternative_keys = [
+                "content_series", "series", "plan", "posts", "schedule", 
+                "weekly_plan", "items", "news_breakdown", "news_post", 
+                "day", "news", "post", "days_plan", "breakdown", 
+                "articles", "carousel", "thread"
+            ]
+            for key in alternative_keys:
                 val = parsed.get(key)
                 if isinstance(val, list) and val:
                     days_raw = val
                     break
         
+        # Fallback 1.5: Check if the parsed dictionary itself represents a single day (e.g. for 1-day news breakdowns)
+        if (not isinstance(days_raw, list) or not days_raw) and isinstance(parsed, dict):
+            # If the top level contains day-like fields and a title, treat it as a single-day list
+            day_indicators = ["hook", "caption", "cta", "key_points", "talking_points", "day_number"]
+            if "title" in parsed and any(k in parsed for k in day_indicators):
+                days_raw = [parsed]
+
         # Fallback 2: Search for any list of dicts at all in the dictionary
         if not isinstance(days_raw, list) or not days_raw:
             for val in parsed.values():
@@ -1160,7 +1468,7 @@ class PromptInterpreter:
                 days_raw = temp_days
 
         if not isinstance(days_raw, list) or not days_raw:
-            return None
+            return None, f"Found JSON but couldn't locate days list. Keys present: {list(parsed.keys())}"
 
         def _parse_list_field(val: Any) -> list[str]:
             if not val:
@@ -1246,7 +1554,7 @@ class PromptInterpreter:
             ))
 
         if not days:
-            return None
+            return None, "All day items failed internal schema mapping"
 
         # Build intent from series metadata
         intent = StructuredIntent(
@@ -1258,7 +1566,7 @@ class PromptInterpreter:
             intent=intent,
             days=days,
             status="draft",
-        )
+        ), None
 
     async def apply_chat_edit(self, plan: SeriesPlan, user_message: str) -> SeriesPlan:
         """Use OpenAI to interpret and apply user's chat-based edits to the plan.

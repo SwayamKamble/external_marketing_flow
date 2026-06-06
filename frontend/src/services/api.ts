@@ -25,13 +25,42 @@ export const api = axios.create({
   timeout: 300000, // 5 minute timeout for deep research + content generation
 });
 
+// Attach Authorization Bearer token if it exists in local storage
+api.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem("auth_token");
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers["Authorization"] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Catch 401 Unauthorized errors to automatically logout and refresh
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem("auth_token");
+      localStorage.removeItem("auth_username");
+      localStorage.removeItem("auth_user_id");
+      window.location.reload();
+    }
+    return Promise.reject(error);
+  }
+);
+
 function shouldRetryOnAltPort(err: any): boolean {
   if (!err) return false;
   if (!err.response && (err.code === "ERR_NETWORK" || err.code === "ECONNABORTED")) return true;
   return false;
 }
 
-async function requestWithPortFallback<T>(fn: (client: typeof api) => Promise<T>): Promise<T> {
+export async function requestWithPortFallback<T>(fn: (client: typeof api) => Promise<T>): Promise<T> {
   try {
     return await fn(api);
   } catch (err: any) {

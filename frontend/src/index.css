@@ -22,3 +22,285 @@
 [data-theme-slide] * {
   color: inherit;
 }
+
+/* ═══════════════════════════════════════════════════════
+   LIGHT MODE STYLING OVERRIDES
+   ═══════════════════════════════════════════════════════ */
+
+body.light-mode {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Page canvas wrappers: keep page backgrounds off-white to create canvas depth */
+body.light-mode .min-h-screen,
+body.light-mode .bg-slate-50 {
+  background-color: #f8fafc !important;
+  color: #0f172a !important;
+}
+
+/* Content cards and floating panels: turn main slate containers into floating white cards with soft borders & shadows */
+body.light-mode .flex-1 .bg-slate-950,
+body.light-mode .flex-1 .bg-slate-950\/60,
+body.light-mode .flex-1 .bg-slate-950\/90,
+body.light-mode .flex-1 .bg-slate-950\/80,
+body.light-mode .flex-1 .bg-slate-950\/40,
+body.light-mode .flex-1 .bg-slate-900,
+body.light-mode .flex-1 .bg-slate-900\/60,
+body.light-mode .flex-1 .bg-slate-900\/40,
+body.light-mode .flex-1 .bg-slate-950\/20,
+body.light-mode .flex-1 .bg-slate-900\/95 {
+  background-color: #ffffff !important;
+  border: 1px solid rgba(15, 23, 42, 0.06) !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.04), 0 8px 10px -6px rgba(15, 23, 42, 0.02) !important;
+}
+
+/* Sub-containers and inputs panel backdrops: use light grey instead of white to separate fields */
+body.light-mode .flex-1 .bg-slate-950\/80,
+body.light-mode .flex-1 .bg-slate-900\/20 {
+  background-color: #f1f5f9 !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: none !important;
+}
+
+body.light-mode .bg-slate-950\/5 {
+  background-color: rgba(15, 23, 42, 0.03) !important;
+}
+
+body.light-mode .bg-amber-500\/5 {
+  background-color: rgba(245, 158, 11, 0.04) !important;
+}
+
+/* Top Navigation Banners: crisp white headers with soft dividers */
+body.light-mode .flex-1 .bg-slate-950.border-b {
+  background-color: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+/* Borders */
+body.light-mode .flex-1 .border-slate-800,
+body.light-mode .flex-1 .border-slate-700,
+body.light-mode .flex-1 .border-slate-850,
+body.light-mode .flex-1 .border-slate-800\/80,
+body.light-mode .flex-1 .border-slate-800\/60,
+body.light-mode .flex-1 .border-slate-700\/50,
+body.light-mode .flex-1 .border-slate-750 {
+  border-color: #e2e8f0 !important;
+}
+
+/* Main typography scale: high-contrast dark slates */
+body.light-mode .flex-1 .text-slate-100,
+body.light-mode .flex-1 .text-slate-200,
+body.light-mode .flex-1 .text-slate-300,
+body.light-mode .flex-1 .text-white {
+  color: #0f172a !important;
+}
+
+body.light-mode .flex-1 .text-slate-400 {
+  color: #334155 !important; /* Slate-700 */
+}
+
+body.light-mode .flex-1 .text-slate-500 {
+  color: #475569 !important; /* Slate-600 */
+}
+
+body.light-mode .flex-1 .text-slate-600 {
+  color: #64748b !important; /* Slate-500 */
+}
+
+/* Premium Light-mode accent colors with matching soft backgrounds */
+body.light-mode .flex-1 .text-violet-400,
+body.light-mode .flex-1 .text-violet-300 {
+  color: #6d28d9 !important; /* Violet-700 */
+}
+body.light-mode .flex-1 .bg-violet-500\/10 {
+  background-color: #f5f3ff !important; /* Violet-50 */
+  border-color: #ddd6fe !important; /* Violet-200 */
+}
+
+body.light-mode .flex-1 .text-emerald-400,
+body.light-mode .flex-1 .text-emerald-300 {
+  color: #047857 !important; /* Emerald-700 */
+}
+body.light-mode .flex-1 .bg-emerald-500\/10 {
+  background-color: #ecfdf5 !important; /* Emerald-50 */
+  border-color: #a7f3d0 !important; /* Emerald-200 */
+}
+
+body.light-mode .flex-1 .text-amber-400,
+body.light-mode .flex-1 .text-amber-300 {
+  color: #b45309 !important; /* Amber-700 */
+}
+body.light-mode .flex-1 .bg-amber-500\/15 {
+  background-color: #fffbeb !important; /* Amber-50 */
+  border-color: #fde68a !important; /* Amber-200 */
+}
+
+body.light-mode .flex-1 .text-pink-400,
+body.light-mode .flex-1 .text-pink-300 {
+  color: #db2777 !important; /* Pink-600 */
+}
+
+body.light-mode .flex-1 .text-blue-400,
+body.light-mode .flex-1 .text-blue-300 {
+  color: #1d4ed8 !important; /* Blue-700 */
+}
+
+/* Stepper indicators */
+body.light-mode .border-amber-500.text-amber-400 {
+  color: #d97706 !important;
+}
+
+/* Form controls - inputs & textareas */
+body.light-mode input,
+body.light-mode textarea,
+body.light-mode select {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #cbd5e1 !important;
+}
+
+body.light-mode input:focus,
+body.light-mode textarea:focus,
+body.light-mode select:focus {
+  border-color: #6366f1 !important;
+  outline: none;
+}
+
+body.light-mode input::placeholder,
+body.light-mode textarea::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Dropdown Options Visibility Fixes (Unconditional Overrides for Native Lists) */
+body.light-mode select[style*="color"],
+body.light-mode select {
+  color: #0f172a !important;
+  background-color: #ffffff !important;
+}
+
+body.light-mode option,
+body.light-mode select option,
+body.light-mode .bg-slate-900 option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Stepper Day Dots Inactive Visibility Fix (Override inline style attributes) */
+body.light-mode button.rounded-full[style*="100, 116, 139"],
+body.light-mode button.rounded-full[style*="100,116,139"] {
+  background-color: #e2e8f0 !important;
+  color: #334155 !important;
+}
+
+/* Inactive Filters and platform buttons visibility overrides */
+body.light-mode button[style*="1e293b"] {
+  border-color: #cbd5e1 !important;
+  background-color: #f1f5f9 !important;
+  color: #475569 !important;
+}
+
+/* Code Preview Panels */
+body.light-mode pre {
+  background-color: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  color: #1e293b !important;
+}
+
+/* Hovers */
+body.light-mode .flex-1 .hover\:bg-slate-800:hover,
+body.light-mode .flex-1 .hover\:bg-slate-700:hover,
+body.light-mode .flex-1 .hover\:bg-slate-900\/60:hover {
+  background-color: #f1f5f9 !important;
+}
+
+body.light-mode .flex-1 .hover\:bg-slate-850:hover {
+  background-color: #f1f5f9 !important;
+}
+
+body.light-mode .flex-1 .hover\:border-slate-700:hover,
+body.light-mode .flex-1 .hover\:border-slate-600:hover {
+  border-color: #cbd5e1 !important;
+}
+
+/* Standardize copy buttons and text triggers in light mode to dark indigo link badges */
+body.light-mode button.hover\:opacity-80,
+body.light-mode button[style*="color"] {
+  color: #4f46e5 !important;
+  background-color: #f5f3ff !important;
+  border: 1px solid #ddd6fe !important;
+}
+
+body.light-mode button.hover\:opacity-80:hover {
+  color: #4338ca !important;
+  background-color: #ede9fe !important;
+}
+
+/* Series Studio Assistant Floating Drawer Panel overrides */
+body.light-mode .fixed.bottom-6.right-6.z-50 > div {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  box-shadow: 0 20px 40px -15px rgba(15, 23, 42, 0.1), 0 4px 16px rgba(15, 23, 42, 0.02) !important;
+}
+
+body.light-mode .flex-1 .bg-slate-850,
+body.light-mode .flex-1 .bg-slate-800 {
+  background-color: #f1f5f9 !important; /* Slate-100 */
+  color: #1e293b !important; /* Slate-800 */
+  border-color: #e2e8f0 !important; /* Slate-200 */
+}
+
+body.light-mode .flex-1 .bg-amber-500\/10 {
+  background-color: #fffbeb !important; /* Soft amber for user message bubbles */
+  color: #78350f !important;
+  border: 1px solid #fde68a !important;
+}
+
+/* Main outer page layout sync */
+body.light-mode .bg-slate-50 {
+  background-color: #f8fafc !important;
+}
+
+/* ── Custom Micro-Animations for Auth Flow ── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-slide-down {
+  animation: slideDown 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-spin-slow {
+  animation: spin 8s linear infinite;
+}
+
+@keyframes float1 {
+  0% { transform: translate(0px, 0px) scale(1); }
+  33% { transform: translate(30px, -50px) scale(1.1); }
+  66% { transform: translate(-20px, 20px) scale(0.95); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+@keyframes float2 {
+  0% { transform: translate(0px, 0px) scale(1); }
+  50% { transform: translate(-45px, 45px) scale(1.15); }
+  100% { transform: translate(0px, 0px) scale(1); }
+}
+
+.animate-float-1 {
+  animation: float1 18s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float2 24s ease-in-out infinite;
+}

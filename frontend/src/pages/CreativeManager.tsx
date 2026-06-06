@@ -1,17 +1,11 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Sparkles, Copy, Check, BookOpen, Target,
-  Calendar, Download, Zap, ArrowRight, ArrowLeft, Loader, ChevronRight, ChevronLeft,
+  Sparkles, Copy, Check, BookOpen,
+  Calendar, Zap, ArrowRight, ArrowLeft, Loader, ChevronRight, ChevronLeft,
   MessageSquare, Send, ChevronDown, ChevronUp, Wand2,
   Search, TrendingUp, GraduationCap, Newspaper, Flame,
 } from "lucide-react";
 import {
-  startCreativeSession,
-  submitCreativeResearch,
-  selectCreativeTopics,
-  planCreativeWeek,
-  getCreativeStatus,
-  listCreativeSessions,
   startQuickSession,
   submitQuickTopics,
   selectQuickTopic,
@@ -79,55 +73,6 @@ const TwitterIcon = (props: any) => (
 );
 
 // â”€â”€ Types â”€â”€
-interface EngagementScores {
-  shareability: number;
-  saveability: number;
-  likeability: number;
-  conversation: number;
-  virality: number;
-  educational_value: number;
-  overall: number;
-}
-
-interface PlatformAngle {
-  platform: string;
-  hook: string;
-  angle: string;
-  format: string;
-  teaching_approach: string;
-  estimated_engagement: string;
-}
-
-interface Topic {
-  id: string;
-  title: string;
-  summary: string;
-  category: string;
-  source: string;
-  educational_angle: string;
-  why_it_works: string;
-  teaching_points: string[];
-  best_platforms: string[];
-  engagement_scores: EngagementScores;
-  platform_angles: PlatformAngle[];
-  selected: boolean;
-}
-
-interface DayPlan {
-  id?: number;
-  day: string;
-  date: string;
-  platform: string;
-  topic_id: string;
-  topic_title: string;
-  content_format: string;
-  intent: string;
-  hook: string;
-  angle: string;
-  teaching_goal: string;
-  reasoning: string;
-  writing_prompt?: string;
-}
 
 // Quick Prompt types
 export interface SeriesDay {
@@ -176,6 +121,7 @@ interface DiscoveredTopic {
   suggested_angles: string[];
   target_audience: string;
   category: string;
+  news_date?: string;
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -196,18 +142,7 @@ const PLATFORM_LABELS: Record<string, string> = {
   x: "X (Twitter)",
 };
 
-const CATEGORY_EMOJIS: Record<string, string> = {
-  "how-to": "",
-  concept: "",
-  framework: "",
-  tool: "",
-  "myth-buster": "",
-  "case-study": "",
-  "cheat-sheet": "",
-  "behind-the-scenes": "",
-  "trend-analysis": "",
-  career: "",
-};
+
 
 // Series theme presets - each series gets a unique visual identity
 export const SERIES_THEMES = [
@@ -219,30 +154,76 @@ export const SERIES_THEMES = [
   { name: "neon", pri: "#a3e635", sec: "#d946ef", acc: "#bef264", border: "#a3e635", badgeBg: "rgba(163,230,53,0.15)", badgeText: "#bef264", gradient: "from-lime-400 to-fuchsia-500" },
   { name: "midnight", pri: "#6366f1", sec: "#475569", acc: "#818cf8", border: "#6366f1", badgeBg: "rgba(99,102,241,0.15)", badgeText: "#a5b4fc", gradient: "from-indigo-500 to-slate-600" },
   { name: "coral", pri: "#fb7185", sec: "#fdba74", acc: "#fda4af", border: "#fb7185", badgeBg: "rgba(251,113,133,0.15)", badgeText: "#fda4af", gradient: "from-rose-400 to-orange-300" },
+  { name: "dracula", pri: "#ff79c6", sec: "#bd93f9", acc: "#8be9fd", border: "#ff79c6", badgeBg: "rgba(255,121,198,0.15)", badgeText: "#ff79c6", gradient: "from-pink-500 to-purple-700" },
+  { name: "nord", pri: "#88c0d0", sec: "#81a1c1", acc: "#8fbcbb", border: "#88c0d0", badgeBg: "rgba(136,192,208,0.15)", badgeText: "#88c0d0", gradient: "from-sky-400 to-slate-700" },
+  { name: "obsidian", pri: "#f59e0b", sec: "#4b5563", acc: "#fbbf24", border: "#f59e0b", badgeBg: "rgba(245,158,11,0.15)", badgeText: "#fcd34d", gradient: "from-yellow-600 to-zinc-900" },
+  { name: "retro", pri: "#22c55e", sec: "#15803d", acc: "#4ade80", border: "#22c55e", badgeBg: "rgba(34,197,94,0.15)", badgeText: "#4ade80", gradient: "from-green-500 to-neutral-900" },
+  { name: "minimalist", pri: "#18181b", sec: "#71717a", acc: "#09090b", border: "#18181b", badgeBg: "rgba(24,24,27,0.08)", badgeText: "#18181b", gradient: "from-neutral-200 to-neutral-400" },
+  { name: "lavender", pri: "#a78bfa", sec: "#c084fc", acc: "#c084fc", border: "#a78bfa", badgeBg: "rgba(167,139,250,0.15)", badgeText: "#c084fc", gradient: "from-violet-500 to-purple-900" },
 ];
 
-export function getSeriesTheme(sessionId: string | null): typeof SERIES_THEMES[0] {
-  if (!sessionId) return SERIES_THEMES[0];
+export function getSeriesTheme(sessionId: string | null, topicTheme?: string | null): typeof SERIES_THEMES[0] {
+  const seed = (topicTheme && topicTheme.trim()) || sessionId;
+  if (!seed) return SERIES_THEMES[0];
+
+  if (topicTheme) {
+    const topicLower = topicTheme.toLowerCase();
+    if (topicLower.includes("gpt") || topicLower.includes("claude") || topicLower.includes("gemini") || topicLower.includes("openai") || topicLower.includes("anthropic") || topicLower.includes("llm") || topicLower.includes("model") || topicLower.includes("ai model")) {
+      return SERIES_THEMES.find(t => t.name === "aurora") || SERIES_THEMES[0];
+    }
+    if (topicLower.includes("open source") || topicLower.includes("github") || topicLower.includes("repo") || topicLower.includes("open-source")) {
+      return SERIES_THEMES.find(t => t.name === "forest") || SERIES_THEMES[0];
+    }
+    if (topicLower.includes("business") || topicLower.includes("startup") || topicLower.includes("deal") || topicLower.includes("policy") || topicLower.includes("law") || topicLower.includes("regulation") || topicLower.includes("acquisition")) {
+      return SERIES_THEMES.find(t => t.name === "obsidian") || SERIES_THEMES[0];
+    }
+    if (topicLower.includes("code") || topicLower.includes("developer") || topicLower.includes("programming") || topicLower.includes("devops") || topicLower.includes("terminal") || topicLower.includes("hack")) {
+      return SERIES_THEMES.find(t => t.name === "retro") || SERIES_THEMES[0];
+    }
+  }
+
   let hash = 0;
-  for (let i = 0; i < sessionId.length; i++) {
-    hash = ((hash << 5) - hash + sessionId.charCodeAt(i)) | 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = ((hash << 5) - hash + seed.charCodeAt(i)) | 0;
   }
   return SERIES_THEMES[Math.abs(hash) % SERIES_THEMES.length];
 }
 
-export function buildDayPrompt(day: SeriesDay, plan: SeriesPlan, platform: string, qpSessionId: string | null): string {
+export function buildDayPrompt(
+  day: SeriesDay,
+  plan: SeriesPlan,
+  platform: string,
+  qpSessionId: string | null,
+  selectedThemeName?: string
+): string {
   const intent = plan.intent || {} as any;
   const topic = intent.topic_theme || "AI & Tech";
   const audience = intent.target_audience || "AI enthusiasts, developers, tech professionals";
   const difficulty = intent.difficulty_level || "intermediate";
   const totalDays = plan.days?.length || 1;
 
-  const theme = getSeriesTheme(qpSessionId);
+  const defaultThemeName = intent.topic_theme
+    ? getSeriesTheme(null, intent.topic_theme).name
+    : getSeriesTheme(qpSessionId).name;
+  const themeName = selectedThemeName || defaultThemeName;
+  const theme = SERIES_THEMES.find(t => t.name === themeName) || SERIES_THEMES[0];
 
   // Provide specific styling instructions based on the selected series theme
   let themeDescription = "";
   if (theme.name === "aurora" || theme.name === "midnight" || theme.name === "ocean") {
     themeDescription = `Modern high-tech and software theme. Dark backgrounds, sleek glowing card borders using ${theme.pri}, soft neon accents using ${theme.acc}, and readable modern body text. Ideal for tech, AI, development, and engineering topics.`;
+  } else if (theme.name === "dracula") {
+    themeDescription = `Dracula gothic tech theme. Dark charcoal/black backgrounds, rich violet border using ${theme.pri}, vibrant hot fuchsia accents using ${theme.acc}. Mystical and high-contrast styling. Perfect for web development and software engineering.`;
+  } else if (theme.name === "nord") {
+    themeDescription = `Sleek Arctic Nord theme. Cool gray-blue backgrounds, frosty cyan borders using ${theme.pri}, soft glacier blue/teal accents using ${theme.acc}. Calm, clean code, open-source engineering style.`;
+  } else if (theme.name === "obsidian") {
+    themeDescription = `Premium Obsidian Gold theme. Ultra-dark obsidian backgrounds, solid metallic gold borders using ${theme.pri}, bright amber highlights using ${theme.acc}. Highly premium and executive feel. Ideal for startup guides, finance, and career development.`;
+  } else if (theme.name === "retro") {
+    themeDescription = `Retro terminal monochrome theme. Pure black backgrounds, glowing classic phosphor green borders using ${theme.pri}, phosphor accents using ${theme.acc}, monospaced styling. Vintage hacker aesthetic.`;
+  } else if (theme.name === "minimalist") {
+    themeDescription = `Clean editorial Light Mode theme. Pure white or light gray backgrounds, dark charcoal text using ${theme.sec}, clean black borders using ${theme.pri}, minimalist structural alignment. Academic, highly readable, clean styling.`;
+  } else if (theme.name === "lavender") {
+    themeDescription = `Soft Lavender and Amethyst theme. Dark violet-gray backgrounds, soft lavender borders using ${theme.pri}, bright amethyst accents using ${theme.acc}. Modern, creative, friendly aesthetic.`;
   } else if (theme.name === "ember" || theme.name === "sunset") {
     themeDescription = `Warm, energetic, and high-impact theme. Dark slate backgrounds with orange, pink, or amber accents. Card components have solid warm borders using ${theme.pri}. Dynamic gradients using ${theme.gradient}. Ideal for business, productivity, marketing, and motivational topics.`;
   } else if (theme.name === "forest") {
@@ -441,6 +422,59 @@ This is Day ${day.day_number} of a ${totalDays}-day series on "${topic}".
 - **Body Font**: A readable Google Font (e.g., "Inter", "DM Sans") - SAME font every day
 - **Brand Header**: Top 8% of every slide shows "@tech_by_pravesh" + series progress indicator (e.g., "Day ${day.day_number}/${totalDays}") + slide counter (e.g., "03/08") in consistent style
 - **Footer**: Bottom 8% shows swipe indicator on non-final slides
+
+---
+
+## PREMIUM VISUAL COMPONENT LIBRARY DIRECTIVE
+To make the design highly visual, premium, and engaging, you must design and use these reusable visual components with inline CSS styles customized to the selected theme:
+1. **Mock Speeches/Tweet Cards**:
+   - Styled cards representing social comments, reviews, or quote blocks.
+   - Include a profile icon placeholder (an elegant colored circle with initials), display name (e.g., "Developer Pro"), handle (e.g., "@dev_pro"), and a verified badge.
+   - A speech bubble indicator tail or standard clean layout with a prominent text body.
+2. **Tabbed IDE Code Frames (For Code & Tech)**:
+   - A dark, sleek IDE frame with macOS window buttons (red, yellow, green circles on top-left).
+   - A top tab bar containing mock tab headers (e.g. \`main.py\`, \`index.js\`, \`styles.css\`), with the active tab styled to match the primary/accent color theme.
+   - Syntactically colored code tags inside a \`<pre><code>\` block, styled with monospace font and generous padding.
+3. **Pros & Cons / Misconception vs Reality Panels**:
+   - Split side-by-side or stacked container cards.
+   - "Misconception" card has red border, red warning icon/badge, and strike-through text or red indicator.
+   - "Reality" or "Best Practice" card has green border, green checkmark icon/badge, and highlighted text.
+4. **Metrics & KPI Showcase Panels**:
+   - Grid or row of cards with large bold numbers/metrics (e.g., "10x", "+250%", "4.8ms") in accent/primary color with brief label text below.
+5. **Component Breakdown Diagrams**:
+   - Containers with clear label badges pointing to internal feature descriptions using thin borders or visual connectors/dots.
+6. **Process Timelines**:
+   - Vertical or horizontal steps linked with animated or highlighted dashed connector borders, with each step marked by a numbered badge (e.g. "Step 1", "Step 2").
+7. **Highlight & Alert Callout Badges**:
+   - Colored pills or cards using badgeBg and badgeText, or a glowing accent color border, to instantly draw focus to key insights.
+
+---
+
+## LAYOUT ALTERNATION & STRICT ALIGNMENT CONSTRAINTS (NO OVERLAPPING)
+To ensure the output looks professional, well-aligned, and strictly avoids overlapping elements:
+1. **Alternating Layout Structure**:
+   - You MUST alternate slide layout types to prevent monotony:
+     - Slide 1: Cover Layout (Centered headline, visual theme gradient backdrop, large brand header).
+     - Slide 2: Split Pain-Point Layout (50% Problem statement card, 50% visual alert/callout box).
+     - Slide 3: Code/IDE Frame or Tabbed Diagram component.
+     - Slide 4: Split Compare / Misconception vs Reality Panel or Metrics Grid.
+     - Slide 5: Process Timeline or Detailed component list.
+     - Slide 6: Centered Summary Card with highlight badges.
+     - Slide 7: Call to Action (Large bold CTAs, preview text, clean social icons).
+2. **Strict Non-Overlapping Layout Rules**:
+   - Use **CSS Flexbox** or **Grid** on elements inside the main slide area.
+   - NEVER use raw \`position: absolute\` on dynamic text elements (headings, body content) that could expand and overlap.
+   - Use relative margins (\`margin-bottom: 20px\`, etc.) and padding to separate blocks cleanly.
+   - If using columns, use \`display: flex; gap: 30px;\` to ensure they never overlap.
+   - Ensure the slide title, body text, and visual component have dedicated height envelopes:
+     - Header/Brand block: top 8% of slide height.
+     - Title block: max 15% of slide height.
+     - Body text: max 20% of slide height.
+     - Visual component / Diagram area: 45% - 55% of slide height (must have container with fixed height/flex-grow).
+     - Footer / Swipe indicator: bottom 8% of slide height.
+3. **No Overflows & Auto-Scaling**:
+   - Slide height is strictly fixed at 1350px. Element sizing, line-heights, and margins must leave enough safe area.
+   - If body text is longer, reduce font size slightly (e.g. down to 26px) to fit all components comfortably without overflow or overlap.
 
 ---
 
@@ -650,14 +684,41 @@ ${detailedSlides}
       
       try {
         for (let i = 0; i < slides.length; i++) {
-          btn.innerHTML = \`Rendering Slide \${i+1} of \${slides.length}...\`;
+          btn.innerHTML = \`Rendering Slide \${i+1} of \${slides.length}...\\nThis may take a moment.\`;
           const slide = slides[i];
+          
+          // Save original styles before screenshotting
+          const originalTransform = slide.style.transform;
+          const originalMarginBottom = slide.style.marginBottom;
+          const originalBorderRadius = slide.style.borderRadius;
+          const originalPosition = slide.style.position;
+          
+          // Temporarily force non-scaled 4:5 layout for html2canvas
+          slide.style.transform = 'none';
+          slide.style.marginBottom = '0';
+          slide.style.borderRadius = '0';
+          slide.style.position = 'relative';
+          
+          // Force layout recalculation
+          slide.offsetHeight;
           
           const canvas = await html2canvas(slide, {
             width: 1080,
             height: 1350,
-            scale: 2 // 2x resolution
+            scale: 2, // 2x high resolution
+            useCORS: true,
+            allowTaint: true,
+            scrollX: 0,
+            scrollY: 0,
+            windowWidth: 1080,
+            windowHeight: 1350
           });
+          
+          // Restore original responsive styles
+          slide.style.transform = originalTransform;
+          slide.style.marginBottom = originalMarginBottom;
+          slide.style.borderRadius = originalBorderRadius;
+          slide.style.position = originalPosition;
           
           const imgData = canvas.toDataURL('image/jpeg', 0.95).split(',')[1];
           zip.file(\`slide-\${i+1}.jpg\`, imgData, {base64: true});
@@ -709,20 +770,440 @@ ${detailedSlides}
 `;
 }
 
-function ScoreBar({ label, value, color }: { label: string; value: number; color: string }) {
-  return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="w-20 text-slate-400 truncate">{label}</span>
-      <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-700"
-          style={{ width: `${value * 10}%`, background: color }}
-        />
-      </div>
-      <span className="w-8 text-right font-mono text-slate-300">{value.toFixed(1)}</span>
-    </div>
-  );
+
+export function buildNewsSlidePrompt(
+  day: SeriesDay,
+  plan: SeriesPlan,
+  platform: string,
+  qpSessionId: string | null,
+  selectedThemeName?: string
+): string {
+  const intent = plan.intent || {} as any;
+  const topic = intent.topic_theme || "AI & Tech News";
+  const audience = intent.target_audience || "AI enthusiasts, developers, tech professionals";
+  const difficulty = intent.difficulty_level || "intermediate";
+
+  const defaultThemeName = intent.topic_theme
+    ? getSeriesTheme(null, intent.topic_theme).name
+    : getSeriesTheme(qpSessionId).name;
+  const themeName = selectedThemeName || defaultThemeName;
+  const theme = SERIES_THEMES.find(t => t.name === themeName) || SERIES_THEMES[0];
+
+  // Provide specific styling instructions based on the selected series theme
+  let themeDescription = "";
+  if (theme.name === "aurora" || theme.name === "midnight" || theme.name === "ocean") {
+    themeDescription = `Modern high-tech and software theme. Dark backgrounds, sleek glowing card borders using ${theme.pri}, soft neon accents using ${theme.acc}, and readable modern body text. Ideal for tech, AI, development, and engineering topics.`;
+  } else if (theme.name === "dracula") {
+    themeDescription = `Dracula gothic tech theme. Dark charcoal/black backgrounds, rich violet border using ${theme.pri}, vibrant hot fuchsia accents using ${theme.acc}. Mystical and high-contrast styling. Perfect for web development and software engineering.`;
+  } else if (theme.name === "nord") {
+    themeDescription = `Sleek Arctic Nord theme. Cool gray-blue backgrounds, frosty cyan borders using ${theme.pri}, soft glacier blue/teal accents using ${theme.acc}. Calm, clean code, open-source engineering style.`;
+  } else if (theme.name === "obsidian") {
+    themeDescription = `Premium Obsidian Gold theme. Ultra-dark obsidian backgrounds, solid metallic gold borders using ${theme.pri}, bright amber highlights using ${theme.acc}. Highly premium and executive feel. Ideal for startup guides, finance, and career development.`;
+  } else if (theme.name === "retro") {
+    themeDescription = `Retro terminal monochrome theme. Pure black backgrounds, glowing classic phosphor green borders using ${theme.pri}, phosphor accents using ${theme.acc}, monospaced styling. Vintage hacker aesthetic.`;
+  } else if (theme.name === "minimalist") {
+    themeDescription = `Clean editorial Light Mode theme. Pure white or light gray backgrounds, dark charcoal text using ${theme.sec}, clean black borders using ${theme.pri}, minimalist structural alignment. Academic, highly readable, clean styling.`;
+  } else if (theme.name === "lavender") {
+    themeDescription = `Soft Lavender and Amethyst theme. Dark violet-gray backgrounds, soft lavender borders using ${theme.pri}, bright amethyst accents using ${theme.acc}. Modern, creative, friendly aesthetic.`;
+  } else if (theme.name === "ember" || theme.name === "sunset") {
+    themeDescription = `Warm, energetic, and high-impact theme. Dark slate backgrounds with orange, pink, or amber accents. Card components have solid warm borders using ${theme.pri}. Dynamic gradients using ${theme.gradient}. Ideal for business, productivity, marketing, and motivational topics.`;
+  } else if (theme.name === "forest") {
+    themeDescription = `Organic, fresh, and modern theme. Emerald/lime/green gradients. Green accent elements. Very clean and fresh developer terminal or sustainability feel. Ideal for coding tutorials, clean architecture, finance, or nature-inspired tech.`;
+  } else if (theme.name === "neon") {
+    themeDescription = `Futuristic cyberpunk neon theme. Lime/fuchsia accents. High energy, dark/neon contrast. Ideal for bleeding-edge technology, web3, AI, game dev, and creative design.`;
+  } else {
+    // coral
+    themeDescription = `Modern friendly and creative theme. Rose and orange soft colors. Warm, premium, very accessible and visual. Ideal for design, user experience, product management, and creative strategy.`;
+  }
+
+  // Generate strictly 3-4 slides:
+  // Slide 1: Hook (catchy & curiosity-generating)
+  // Slide 2: Core News (factual details, benchmarks, release date)
+  // Slide 3: Implications (why it matters / takeaway)
+  // Slide 4: CTA
+  const slides = [
+    `### Slide 1: Hook
+- **Purpose**: Grab the user's attention instantly. Must be catchy and curiosity-generating.
+- **Heading**: ${day.hook || day.title}
+- **Body Content**: Breaking AI Update: ${day.title}
+- **Visual Concept**: Visual backdrop using theme gradient (${theme.gradient}), large bold headline that stops the scroll, swipe-right chevron icon.
+- **Layout**: Centered cover layout with brand header at the top and swipe indicator at the bottom.
+- **Slide Explanation & Rationale**: Hook the target audience ("${audience}") on the core news breakthrough.`,
+    `### Slide 2: Core News Details
+- **Purpose**: Present the raw news facts, features, benchmarks, and details.
+- **Heading**: What Happened
+- **Body Content**: ${day.key_points.slice(0, 3).join(" | ") || day.teaching_goal}
+- **News Release Date Badge**: News Date: ${day.notes || "Recent Breakthrough"}
+- **Visual Concept**: Highly structured grid containing key stats, features, or benchmarks. Include a "Breaking Badge" or comparison card if appropriate.
+- **Layout**: Clear grid layout, showing 2-3 feature boxes, clean alignment.
+- **Slide Explanation & Rationale**: Provide pure technical facts and news details.`,
+    `### Slide 3: Implications & Takeaways
+- **Purpose**: Detail the implications of this news and why it matters for the AI/tech industry.
+- **Heading**: Why It Matters
+- **Body Content**: ${day.angle || "How this changes the landscape and what it means for builders, developers, and businesses."}
+- **Visual Concept**: Process flow or metric list card. High contrast callout box pointing to key impact.
+- **Layout**: Split screen or centered focus card detailing the core implications.
+- **Slide Explanation & Rationale**: Connect the news to the viewer's professional or technical interests.`,
+    `### Slide 4: Call to Action (CTA)
+- **Purpose**: Direct user engagement and conversion.
+- **Heading**: ${day.cta || "Save for Reference"}
+- **Body Content**: Follow @tech_by_pravesh | Share this news update | Save to read later
+- **Visual Concept**: Large, bold call-to-action buttons styled with the theme accent color (${theme.acc}), accompanied by social handle badges.
+- **Layout**: CTA slide layout with action items centered in the main visual canvas.
+- **Slide Explanation & Rationale**: Prompt the user to save, share, or comment.`
+  ];
+
+  const detailedSlides = slides.join("\n\n");
+  const platformLabel = PLATFORM_LABELS[platform] || platform;
+
+  return `# Generate Production-Ready Carousel Slides in HTML/CSS/JS (ZIP Download Support)
+
+## OUTPUT FORMAT: Unified HTML Slide Deck File
+Generate a **single, unified HTML file** containing all slides nested as slide containers. This allows previewing all slides in the browser and downloading them all at once as a ZIP of JPGs.
+
+The unified HTML file must contain:
+- Standard vertical dimension slide containers: **1080px wide x 1350px tall** (4:5 aspect ratio for ${platformLabel})
+- Fully self-contained styles (no external dependencies except Google Fonts)
+- Included CDN libraries:
+  - \`html2canvas\` for rendering slides to images: \`https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js\`
+  - \`jszip\` for packaging images into a single zip file: \`https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js\`
+- A global sticky control toolbar at the top with a "Download All Slides (ZIP)" button.
+- A vertical stack of slide wrappers (e.g. \`<div class="slide-wrapper" id="slide-X">\`).
+- Mobile-optimized typography (large, bold, high-contrast)
+- STRICT slide count: **exactly 4 slides total**. Do NOT generate 5 or more slides.
+
+---
+
+## News Context
+- **News Topic**: "${topic}"
+- **Platform**: ${platformLabel}
+- **Target Audience**: ${audience}
+- **Difficulty Level**: ${difficulty}
+
+---
+
+## CRITICAL: News-Wide Visual Theme Consistency
+**ALL slides of this post MUST use the EXACT SAME visual theme (same fonts, styling, structure, and component library).**
+
+### Selected Theme Specification:
+- **Theme Name**: ${theme.name}
+- **Visual Style**: ${themeDescription}
+- **Primary Color (headings, main accents)**: \`${theme.pri}\`
+- **Secondary Color (body text, captions)**: \`${theme.sec}\`
+- **Accent Color (badges, highlights, CTAs)**: \`${theme.acc}\`
+- **Border Styling Color**: \`${theme.border}\`
+- **Badge Styling**: Background color \`${theme.badgeBg}\` with text color \`${theme.badgeText}\`
+- **Heading Font**: A bold Google Font (e.g., "Outfit", "Space Grotesk", "Plus Jakarta Sans") - SAME font every day
+- **Body Font**: A readable Google Font (e.g., "Inter", "DM Sans") - SAME font every day
+- **Brand Header**: Top 8% of every slide shows "@tech_by_pravesh" + news category badge + slide counter (e.g., "03/04") in consistent style
+- **Footer**: Bottom 8% shows swipe indicator on non-final slides
+
+---
+
+## PREMIUM VISUAL COMPONENT LIBRARY DIRECTIVE (STRICT NO OVERLAPPING & PERFECT ALIGNMENT)
+To make the design highly visual, premium, and engaging, you must design and use these reusable visual components with inline CSS styles customized to the selected theme:
+1. **Mock Speeches/Tweet Cards**:
+   - Styled cards representing social comments, reviews, or quote blocks.
+   - Include a profile icon placeholder (an elegant colored circle with initials), display name (e.g., "Developer Pro"), handle (e.g., "@dev_pro"), and a verified badge.
+2. **Metrics & KPI Showcase Panels**:
+   - Grid or row of cards with large bold numbers/metrics (e.g., "10x", "+250%", "4.8ms") in accent/primary color with brief label text below.
+3. **Pros & Cons / Misconception vs Reality Panels**:
+   - Split side-by-side or stacked container cards.
+4. **Alert/Warning Callout Boxes**:
+   - Clean boxes with a warning icon for common warnings/takeaways.
+
+---
+
+## LAYOUT STRUCTURE & STRICT ALIGNMENT CONSTRAINTS (NO OVERLAPPING)
+To ensure the output looks professional, well-aligned, and strictly avoids overlapping elements:
+1. **Strict Non-Overlapping Layout Rules**:
+   - You MUST use **CSS Flexbox** or **Grid** on elements inside the main slide area.
+   - **NEVER use raw \`position: absolute\` on dynamic text elements (headings, body content) that could expand and overlap each other.**
+   - Make sure all components have perfect alignment, centered columns or grids, and clean padding.
+   - Use relative margins (\`margin-bottom: 20px\`, etc.) and padding to separate blocks cleanly.
+   - If using columns, use \`display: flex; gap: 30px;\` to ensure they never overlap.
+   - Ensure the slide title, body text, and visual component have dedicated height envelopes:
+     - Header/Brand block: top 8% of slide height.
+     - Title block: max 15% of slide height.
+     - Body text: max 20% of slide height.
+     - Visual component / Diagram area: 45% - 55% of slide height (must have container with fixed height/flex-grow).
+     - Footer / Swipe indicator: bottom 8% of slide height.
+2. **No Overflows & Auto-Scaling**:
+   - Slide height is strictly fixed at 1350px. Element sizing, line-heights, and margins must leave enough safe area.
+   - If body text is longer, reduce font size slightly (e.g. down to 26px) to fit all components comfortably without overflow or overlap.
+
+---
+
+## Detailed Slide-by-Slide Specification
+
+Generate each of the following slides as a separate HTML slide wrapper. For each slide, use the visual components listed above where appropriate.
+
+${detailedSlides}
+
+---
+
+## HTML/CSS/JS Requirements for the Unified Slide Deck File
+
+### CRITICAL CODE OUTPUT REQUIREMENTS
+1. You MUST include a physical, styled "Download All Slides (ZIP)" button inside a sticky control toolbar at the top of the HTML body. Do NOT replace it with comments or placeholders.
+2. The button styling and control toolbar styling MUST be physically written in the CSS block.
+3. The JavaScript '<script>' block containing the 'downloadAllJPGs()' function MUST be fully implemented and included at the bottom of the body. You must copy the JavaScript block verbatim without any modifications or shortcuts.
+
+\`\`\`html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>News Post: ${day.title}</title>
+  <link href="https://fonts.googleapis.com/css2?family=[HEADING_FONT]:wght@600;700;800;900&family=[BODY_FONT]:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- CDNs for capturing slides and zipping them -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0f172a;
+      color: #f1f5f9;
+      font-family: '[BODY_FONT]', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px;
+    }
+    
+    /* Control Toolbar */
+    .toolbar {
+      position: sticky;
+      top: 20px;
+      z-index: 10000;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(12px);
+      padding: 12px 24px;
+      border-radius: 16px;
+      margin-bottom: 40px;
+      display: flex;
+      gap: 15px;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    
+    .download-btn {
+      background: ${theme.acc};
+      color: #0f172a;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 800;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+      transition: all 0.2s ease;
+    }
+    
+    .download-btn:hover {
+      transform: translateY(-2px);
+      opacity: 0.95;
+    }
+    
+    .download-btn:disabled {
+      background: #475569;
+      color: #94a3b8;
+      cursor: not-allowed;
+      transform: none;
+    }
+    
+    /* Slide Deck Layout & Responsive Scaling */
+    .deck-container {
+      display: flex;
+      flex-direction: column;
+      gap: 40px;
+    }
+    
+    .slide-wrapper {
+      width: 1080px;
+      height: 1350px;
+      position: relative;
+      overflow: hidden;
+      border-radius: 16px;
+      background: radial-gradient(circle at top right, #1e1b4b, #0f172a, #020617);
+      box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+      transform-origin: top center;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    @media (max-width: 1200px) {
+        .slide-wrapper { transform: scale(0.8); margin-bottom: -270px; }
+    }
+    @media (max-width: 900px) {
+        .slide-wrapper { transform: scale(0.6); margin-bottom: -540px; }
+    }
+    @media (max-width: 700px) {
+        .slide-wrapper { transform: scale(0.4); margin-bottom: -810px; }
+    }
+    @media (max-width: 500px) {
+        .slide-wrapper { transform: scale(0.3); margin-bottom: -945px; }
+    }
+
+    /* Core Slide Layout Elements */
+    .slide-header {
+      height: 108px;
+      padding: 0 60px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: '[HEADING_FONT]', sans-serif;
+      font-size: 24px;
+      color: #94a3b8;
+    }
+    .slide-header .progress { display: flex; align-items: center; gap: 16px; }
+    
+    .badge {
+      background: ${theme.badgeBg};
+      color: ${theme.badgeText};
+      padding: 10px 20px;
+      border-radius: 30px;
+      font-weight: 700;
+      border: 1px solid ${theme.border}44;
+    }
+
+    .slide-main {
+      flex: 1;
+      padding: 40px 80px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide-footer {
+      height: 108px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 26px;
+      font-weight: 600;
+      color: #64748b;
+      gap: 12px;
+    }
+
+    /* Typography & Hierarchy */
+    .title {
+      font-family: '[HEADING_FONT]', sans-serif;
+      font-size: 72px;
+      font-weight: 800;
+      color: #ffffff;
+      margin-bottom: 30px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .title-num { color: ${theme.pri}; }
+    .subtitle {
+      font-size: 36px;
+      color: #cbd5e1;
+      line-height: 1.4;
+      margin-bottom: 50px;
+      font-weight: 500;
+    }
+
+    /* INSERT ADDITIONAL SLIDE-SPECIFIC COMPONENT STYLES BELOW */
+  </style>
+</head>
+<body>
+
+  <!-- Sticky control toolbar -->
+  <div class="toolbar">
+    <button class="download-btn" id="download-zip-btn" onclick="downloadAllJPGs()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      Download All Slides (ZIP)
+    </button>
+  </div>
+
+  <div class="deck-container">
+    <!-- Generated slides wrapper stack -->
+  </div>
+
+  <script>
+    async function downloadAllJPGs() {
+      const btn = document.getElementById('download-zip-btn');
+      const originalText = btn.innerHTML;
+      btn.disabled = true;
+      
+      const zip = new JSZip();
+      const slides = document.querySelectorAll('.slide-wrapper');
+      
+      try {
+        for (let i = 0; i < slides.length; i++) {
+          btn.innerHTML = \`Rendering Slide \${i+1} of \${slides.length}...\\nThis may take a moment.\`;
+          const slide = slides[i];
+          
+          const originalTransform = slide.style.transform;
+          const originalMarginBottom = slide.style.marginBottom;
+          const originalBorderRadius = slide.style.borderRadius;
+          const originalPosition = slide.style.position;
+          
+          slide.style.transform = 'none';
+          slide.style.marginBottom = '0';
+          slide.style.borderRadius = '0';
+          slide.style.position = 'relative';
+          
+          const canvas = await html2canvas(slide, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            logging: false,
+            width: 1080,
+            height: 1350
+          });
+          
+          slide.style.transform = originalTransform;
+          slide.style.marginBottom = originalMarginBottom;
+          slide.style.borderRadius = originalBorderRadius;
+          slide.style.position = originalPosition;
+          
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          const base64Data = imgData.split(',')[1];
+          zip.file(\`slide_\${i+1}.jpg\`, base64Data, {base64: true});
+        }
+        
+        btn.innerHTML = 'Creating ZIP file...';
+        const content = await zip.generateAsync({type: 'blob'});
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(content);
+        link.download = 'news_slides_${day.day_number}.zip';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } catch (err) {
+        console.error(err);
+        alert('Error rendering slides: ' + err.message);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+      }
+    }
+  </script>
+</body>
+</html>
+\`\`\`
+
+## Copy-Pasteable Caption & Hashtags:
+After the HTML code block, you MUST generate the complete post caption:
+- Structured using short, double-spaced paragraphs (1-2 sentences max).
+- Start with a compelling hook related to "${day.hook}".
+- Mention the news date: **${day.notes || "Today"}**.
+- Include 3-5 relevant hashtags (such as #ai, #tech, #artificialintelligence matching the news topic).
+- End with a clear call-to-action inviting comments, follows, or shares.
+- Clearly label this block: \`### Final Social Media Caption:\` so it can be easily copied.
+`;
 }
+
+
 
 function PlatformBadge({ platform }: { platform: string }) {
   const Icon = PLATFORM_ICONS[platform] || Zap;
@@ -738,26 +1219,12 @@ function PlatformBadge({ platform }: { platform: string }) {
   );
 }
 
-export default function CreativeManager({ weekId }: { weekId: string }) {
-  // â”€â”€ Existing Manual Pipeline State â”€â”€
-  const [tab, setTab] = useState<"research" | "topics" | "planner" | "export">("research");
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [status, setStatus] = useState<string>("idle");
-  const [researchPrompt, setResearchPrompt] = useState("");
-  const [pastedResearch, setPastedResearch] = useState("");
-  const [topics, setTopics] = useState<Topic[]>([]);
-  const [plan, setPlan] = useState<DayPlan[]>([]);
-  const [niche, setNiche] = useState("AI & Tech");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [sessionsList, setSessionsList] = useState<any[]>([]);
-  const [copiedPromptId, setCopiedPromptId] = useState<number | null>(null);
-  const [platformFilter, setPlatformFilter] = useState<string>("all");
 
-  // â”€â”€ Quick Prompt Pipeline State (6-step flow) â”€â”€
-  const [mode, setMode] = useState<"choose" | "manual" | "quick">("choose");
+export default function CreativeManager({ weekId }: { weekId: string }) {
+  const [error, setError] = useState<string | null>(null);
+
+  // ── Quick Prompt & News Studio Pipeline State (6-step flow) ──
+  const [mode, setMode] = useState<"choose" | "quick" | "news">("choose");
   const [qpStep, setQpStep] = useState<1 | 2 | 3 | 4 | 5 | 6>(1);
   const [qpSessionId, setQpSessionId] = useState<string | null>(null);
   const [qpSeriesLength, setQpSeriesLength] = useState(7);
@@ -781,25 +1248,59 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
   const [qpSessionsList, setQpSessionsList] = useState<any[]>([]);
   const [qpActivePromptDay, setQpActivePromptDay] = useState(1);
   const [qpChatOpen, setQpChatOpen] = useState(false);
+  const [qpSelectedTheme, setQpSelectedTheme] = useState<string | null>(null);
+  const [copiedPromptId, setCopiedPromptId] = useState<number | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Derive the series theme from the session ID
-  const seriesTheme = getSeriesTheme(qpSessionId);
+  // Derive the series theme from the topic title, local storage, or session ID, with deduplication against other sessions
+  const getUniqueSeriesThemeName = () => {
+    const defaultName = qpPlan?.intent?.topic_theme
+      ? getSeriesTheme(null, qpPlan.intent.topic_theme).name
+      : getSeriesTheme(qpSessionId).name;
 
-  const copyWritingPrompt = (dayIndex: number, text: string) => {
-    navigator.clipboard.writeText(text);
-    setCopiedPromptId(dayIndex);
-    setTimeout(() => setCopiedPromptId(null), 2000);
+    if (!qpSessionsList || qpSessionsList.length === 0) return defaultName;
+
+    // Collect all theme names currently used by other finalized or active sessions
+    const usedThemeNames = new Set<string>();
+    qpSessionsList.forEach((s) => {
+      // Exclude the current session
+      if (s.id === qpSessionId) return;
+
+      // 1. Check if the session has a custom selected theme in localStorage
+      const saved = localStorage.getItem(`creative_theme_${s.id}`);
+      if (saved) {
+        usedThemeNames.add(saved);
+        return;
+      }
+
+      // 2. Otherwise derive it from the topic title or session ID
+      const planTheme = s.series_plan?.intent?.topic_theme;
+      if (planTheme) {
+        usedThemeNames.add(getSeriesTheme(null, planTheme).name);
+      } else if (s.id) {
+        usedThemeNames.add(getSeriesTheme(s.id).name);
+      }
+    });
+
+    // If the default theme name is already used, find the first unused theme in SERIES_THEMES
+    if (usedThemeNames.has(defaultName)) {
+      const unused = SERIES_THEMES.find(t => !usedThemeNames.has(t.name));
+      if (unused) return unused.name;
+    }
+
+    return defaultName;
   };
+
+  const defaultThemeName = getUniqueSeriesThemeName();
+  const activeThemeName = qpSelectedTheme || (qpSessionId ? localStorage.getItem(`creative_theme_${qpSessionId}`) : null) || defaultThemeName;
+  const seriesTheme = SERIES_THEMES.find(t => t.name === activeThemeName) || SERIES_THEMES[0];
+
+
 
   // Fetch previous sessions on load
   const loadPreviousSessions = async () => {
     try {
-      const [manualRes, quickRes] = await Promise.all([
-        listCreativeSessions(),
-        listQuickSessions(),
-      ]);
-      setSessionsList(manualRes.sessions || []);
+      const quickRes = await listQuickSessions();
       setQpSessionsList(quickRes.sessions || []);
     } catch (e) {
       console.error("Failed to load previous sessions", e);
@@ -807,111 +1308,31 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
   };
 
   useEffect(() => {
-    if (!sessionId && !qpSessionId) {
+    if (!qpSessionId) {
       loadPreviousSessions();
     }
-  }, [sessionId, qpSessionId]);
+  }, [qpSessionId]);
 
-  const handleLoadSession = async (sid: string) => {
-    setLoading(true);
+  // News Studio start handler (triggers automatic Discovery session creation)
+  const handleNewsStart = async () => {
+    setQpLoading(true);
     setError(null);
+    setQpContentFilter("news");
+    setQpSeriesLength(1);
+    setQpPlatform("instagram");
+    setQpUserTopic("");
     try {
-      const res = await getCreativeStatus(sid);
-      setSessionId(res.session_id);
-      setNiche(res.niche || "AI & Tech");
-      setResearchPrompt(res.research_prompt || "");
-      setStatus(res.status);
-      setTopics(res.topics || []);
-      setPlan(res.weekly_plan || []);
-      setSelectedIds(new Set((res.topics || []).filter((t: any) => t.selected).map((t: any) => t.id)));
-
-      // Determine tab based on status
-      if (res.status === "planned") {
-        setTab("planner");
-      } else if (res.status === "topics_ready") {
-        setTab("topics");
-      } else {
-        setTab("research");
-      }
+      const res = await startQuickSession(1, "news", "", "instagram");
+      setQpSessionId(res.session_id);
+      setQpDiscoveryPrompt(res.discovery_prompt);
+      setQpStep(1); // Set to step 1 (Prompt Discovery Prompt)
+      setMode("news");
     } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to load session");
+      setError(e?.response?.data?.detail || e?.message || "Failed to start News Studio");
     } finally {
-      setLoading(false);
+      setQpLoading(false);
     }
   };
-
-  // Start session
-  const handleStart = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await startCreativeSession(weekId, niche);
-      setSessionId(res.session_id);
-      setResearchPrompt(res.research_prompt);
-      setStatus("input_needed");
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to start session");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Submit research
-  const handleSubmitResearch = async () => {
-    if (!sessionId || !pastedResearch.trim()) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await submitCreativeResearch(sessionId, pastedResearch);
-      setTopics(res.topics || []);
-      setStatus("topics_ready");
-      setSelectedIds(new Set((res.topics || []).map((t: Topic) => t.id)));
-      setTab("topics");
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to parse research");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Select topics and plan
-  const handlePlanWeek = async () => {
-    if (!sessionId) return;
-    setLoading(true);
-    setError(null);
-    try {
-      await selectCreativeTopics(sessionId, Array.from(selectedIds));
-      const res = await planCreativeWeek(sessionId);
-      setPlan(res.plan || []);
-      setStatus("planned");
-      setTab("planner");
-    } catch (e: any) {
-      setError(e?.response?.data?.detail || e?.message || "Failed to plan week");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const copyPrompt = () => {
-    navigator.clipboard.writeText(researchPrompt);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const toggleTopic = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const tabClass = (t: string) =>
-    `px-5 py-3 text-sm font-semibold rounded-xl transition-all cursor-pointer ${tab === t
-      ? "bg-gradient-to-r from-violet-600 to-indigo-600 text-white shadow-lg shadow-violet-500/25"
-      : "text-slate-400 hover:text-white hover:bg-slate-800"
-    }`;
 
   // â”€â”€ Quick Prompt Handlers (6-step flow) â”€â”€
 
@@ -1046,6 +1467,7 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
       setQpPlatform(si.platform || "instagram");
 
       // Determine step from status
+      const isNews = res.content_filter === "news";
       const status = res.status || "created";
       if (status === "finalized" && res.production_prompt) {
         setQpStep(6);
@@ -1056,11 +1478,12 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
       } else if (status === "topics_discovered" && (res.discovered_topics || []).length > 0) {
         setQpStep(3);
       } else if (status === "discovery_prompt_ready") {
-        setQpStep(2);
+        setQpStep(isNews ? 1 : 2);
       } else {
         setQpStep(1);
       }
-      setMode("quick");
+      setQpSelectedTheme(null);
+      setMode(isNews ? "news" : "quick");
     } catch (e: any) {
       setError(e?.response?.data?.detail || e?.message || "Failed to load session");
     } finally {
@@ -1102,6 +1525,7 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
     setQpStep(1);
     setQpActivePromptDay(1);
     setQpChatOpen(false);
+    setQpSelectedTheme(null);
     setMode("choose");
   };
 
@@ -1116,30 +1540,18 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
             </div>
             <div>
               <h1 className="text-xl font-bold bg-gradient-to-r from-violet-400 to-indigo-400 bg-clip-text text-transparent">
-                Creative Manager
+                SocialHQ
               </h1>
               <p className="text-xs text-slate-500">Educational Content Intelligence</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            {status !== "idle" && (
-              <span className="text-xs font-semibold bg-violet-500/10 text-violet-400 px-3 py-1.5 rounded-lg border border-violet-500/20 capitalize">
-                Status: {status.replace("_", " ")}
-              </span>
-            )}
             <span className="text-xs font-mono bg-slate-800 text-slate-400 px-3 py-1.5 rounded-lg border border-slate-700">
               {weekId}
             </span>
-            {sessionId && (
+            {qpSessionId && (
               <button
-                onClick={() => {
-                  setSessionId(null);
-                  setStatus("idle");
-                  setTopics([]);
-                  setPlan([]);
-                  setResearchPrompt("");
-                  setPastedResearch("");
-                }}
+                onClick={resetQuickPrompt}
                 className="text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-700 transition"
               >
                 Exit Session
@@ -1147,24 +1559,6 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
             )}
           </div>
         </div>
-
-        {/* Tabs */}
-        {sessionId && (
-          <div className="max-w-7xl mx-auto px-6 pb-3 flex gap-2">
-            <button onClick={() => setTab("research")} className={tabClass("research")}>
-              <span className="flex items-center gap-2"><BookOpen size={14} /> Research</span>
-            </button>
-            <button onClick={() => setTab("topics")} className={tabClass("topics")} disabled={topics.length === 0}>
-              <span className="flex items-center gap-2"><Target size={14} /> Topics ({topics.length})</span>
-            </button>
-            <button onClick={() => setTab("planner")} className={tabClass("planner")} disabled={plan.length === 0}>
-              <span className="flex items-center gap-2"><Calendar size={14} /> Weekly Plan</span>
-            </button>
-            <button onClick={() => setTab("export")} className={tabClass("export")} disabled={plan.length === 0}>
-              <span className="flex items-center gap-2"><Download size={14} /> Export</span>
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Error */}
@@ -1174,19 +1568,19 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        {/* â”€â”€ MODE CHOOSER â”€â”€ */}
-        {!sessionId && mode === "choose" && (
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {/* ── MODE CHOOSER ── */}
+        {mode === "choose" && (
           <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
             <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center border border-violet-500/20">
               <Sparkles size={48} className="text-violet-400" />
             </div>
             <div className="text-center max-w-lg">
               <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-violet-300 to-indigo-300 bg-clip-text text-transparent">
-                Creative Manager
+                SocialHQ
               </h2>
               <p className="text-slate-400 leading-relaxed">
-                Choose your workflow to create educational content that your audience will{" "}
+                Choose your workflow to create content that your audience will{" "}
                 <strong className="text-violet-400">save</strong>,{" "}
                 <strong className="text-pink-400">share</strong>, and{" "}
                 <strong className="text-amber-400">learn from</strong>.
@@ -1195,25 +1589,25 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
 
             {/* Mode Cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 w-full max-w-3xl">
-              {/* Manual Research Mode */}
+              {/* News Studio Mode */}
               <div
-                onClick={() => setMode("manual")}
+                onClick={handleNewsStart}
                 className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 cursor-pointer hover:border-violet-500/50 hover:bg-slate-900/80 transition group"
               >
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <BookOpen size={28} className="text-violet-400" />
+                  <Newspaper size={28} className="text-violet-400" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-100 mb-2">Manual Research</h3>
+                <h3 className="text-lg font-bold text-slate-100 mb-2">News Studio</h3>
                 <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                  Get a research prompt, paste results from ChatGPT/Perplexity, score topics, and plan your week.
+                  Discover trending AI & Tech news, select a post topic, review technical details, and generate visual HTML/CSS slide decks.
                 </p>
                 <div className="flex items-center gap-1 text-violet-400 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>Start Manual Flow</span>
+                  <span>Start News Studio Flow</span>
                   <ChevronRight size={14} />
                 </div>
               </div>
 
-              {/* Quick Prompt Mode */}
+              {/* Series Studio Mode */}
               <div
                 onClick={() => setMode("quick")}
                 className="bg-slate-900/60 border border-amber-500/20 rounded-2xl p-6 cursor-pointer hover:border-amber-500/50 hover:bg-slate-900/80 transition group relative overflow-hidden"
@@ -1224,12 +1618,12 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <Wand2 size={28} className="text-amber-400" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-100 mb-2">Quick Prompt</h3>
+                <h3 className="text-lg font-bold text-slate-100 mb-2">Series Studio</h3>
                 <p className="text-sm text-slate-400 leading-relaxed mb-4">
-                  Type a simple idea, AI interprets it, generates a research prompt, and lets you review & edit day-by-day.
+                  Type a simple series idea, let the AI interpret it, research each day, and edit the planned posts.
                 </p>
                 <div className="flex items-center gap-1 text-amber-400 text-xs font-semibold opacity-0 group-hover:opacity-100 transition-opacity">
-                  <span>Start Quick Flow</span>
+                  <span>Start Series Studio Flow</span>
                   <ChevronRight size={14} />
                 </div>
               </div>
@@ -1242,27 +1636,28 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                   <Sparkles size={20} className="text-emerald-400" />
                   Saved Topics
                 </h3>
-                <p className="text-xs text-slate-500 mb-5">Completed series plans ready for production. Click to load and reuse.</p>
+                <p className="text-xs text-slate-500 mb-5">Completed series and news plans ready for production. Click to load and reuse.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {qpSessionsList.filter((s: any) => s.status === "finalized").map((session: any) => {
                     const platformLabels: Record<string, string> = { instagram: "Instagram", linkedin: "LinkedIn", x: "X" };
                     const platformColors: Record<string, string> = { instagram: "#E1306C", linkedin: "#0A66C2", x: "#1DA1F2" };
                     const plat = session.platform || "instagram";
+                    const isNews = session.content_filter === "news";
                     return (
                       <div
                         key={session.id}
                         onClick={() => handleLoadQuickSession(session.id)}
-                        className="bg-slate-900/40 border border-emerald-500/15 rounded-2xl p-5 cursor-pointer hover:border-emerald-500/40 hover:bg-slate-900/60 transition group"
+                        className={`bg-slate-900/40 border rounded-2xl p-5 cursor-pointer hover:bg-slate-900/60 transition group ${isNews ? "border-violet-500/15 hover:border-violet-500/40" : "border-emerald-500/15 hover:border-emerald-500/40"}`}
                       >
                         <div className="flex items-start justify-between mb-3">
                           <div className="flex items-center gap-2">
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full border" style={{ color: platformColors[plat], borderColor: platformColors[plat] + "40", backgroundColor: platformColors[plat] + "10" }}>
                               {platformLabels[plat] || plat}
                             </span>
-                            <span className="text-xs text-slate-500">{session.series_length} days</span>
+                            <span className="text-xs text-slate-500">{session.series_length} {isNews ? "post" : "days"}</span>
                           </div>
-                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                            Saved
+                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full border ${isNews ? "bg-violet-500/10 text-violet-400 border-violet-500/20" : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"}`}>
+                            {isNews ? "News" : "Series"}
                           </span>
                         </div>
                         <h4 className="font-bold text-base text-slate-200 group-hover:text-white transition mb-1 line-clamp-2">
@@ -1273,7 +1668,7 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                         )}
                         <div className="mt-4 text-xs text-slate-500 flex justify-between items-center border-t border-slate-800/60 pt-3">
                           <span>{new Date(session.created_at).toLocaleDateString()}</span>
-                          <div className="flex items-center gap-1 text-emerald-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className={`flex items-center gap-1 font-medium opacity-0 group-hover:opacity-100 transition-opacity ${isNews ? "text-violet-400" : "text-emerald-400"}`}>
                             <span>Load</span>
                             <ChevronRight size={14} />
                           </div>
@@ -1285,176 +1680,159 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
               </div>
             )}
 
-            {/* In Progress & Manual Sessions */}
-            {(sessionsList.length > 0 || qpSessionsList.filter((s: any) => s.status !== "finalized").length > 0) && (
+            {/* In Progress Sessions */}
+            {qpSessionsList.filter((s: any) => s.status !== "finalized").length > 0 && (
               <div className="w-full max-w-4xl mt-10 pt-10 border-t border-slate-800/80">
                 <h3 className="text-lg font-bold text-slate-300 mb-5 flex items-center gap-2">
                   <Calendar size={18} className="text-slate-500" />
                   Previous Sessions
                 </h3>
-                <div className="grid grid-cols-1 gap-4">
-                  {/* Manual sessions */}
-                  {sessionsList.map((session) => (
-                    <div
-                      key={session.id}
-                      onClick={() => { setMode("manual"); handleLoadSession(session.id); }}
-                      className="bg-slate-900/40 border border-slate-800 rounded-2xl p-5 cursor-pointer hover:border-violet-500/50 hover:bg-slate-900/60 transition group flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-3">
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-violet-500/10 text-violet-400 border border-violet-500/20 capitalize">
-                            {session.status.replace("_", " ")}
-                          </span>
-                          <span className="text-xs text-slate-500 font-mono bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
-                            {session.week_id}
-                          </span>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {qpSessionsList.filter((s: any) => s.status !== "finalized").map((session: any) => {
+                    const isNews = session.content_filter === "news";
+                    return (
+                      <div
+                        key={session.id}
+                        onClick={() => handleLoadQuickSession(session.id)}
+                        className={`bg-slate-900/40 border rounded-2xl p-5 cursor-pointer hover:bg-slate-900/60 transition group flex flex-col justify-between ${isNews ? "border-violet-500/15 hover:border-violet-500/40" : "border-amber-500/15 hover:border-amber-500/40"}`}
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-3">
+                            <span className={`text-xs font-semibold px-2.5 py-1 rounded border capitalize ${isNews ? "bg-violet-500/10 text-violet-400 border-violet-500/20" : "bg-amber-500/10 text-amber-400 border-amber-500/20"}`}>
+                              {session.status.replace("_", " ")}
+                            </span>
+                            {session.platform && (
+                              <span className="text-[10px] text-slate-500 capitalize">{session.platform}</span>
+                            )}
+                          </div>
+                          <h4 className="font-bold text-base text-slate-200 group-hover:text-white transition line-clamp-2">
+                            {session.selected_topic_title || session.topic_theme || session.user_prompt}
+                          </h4>
                         </div>
-                        <h4 className="font-bold text-base text-slate-200 group-hover:text-white transition">
-                          Niche: {session.niche}
-                        </h4>
-                      </div>
-                      <div className="mt-6 text-xs text-slate-500 flex justify-between items-center border-t border-slate-800/60 pt-3">
-                        <span>{new Date(session.created_at).toLocaleString()}</span>
-                        <div className="flex items-center gap-1 text-violet-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span>Load Plan</span>
-                          <ChevronRight size={14} />
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {/* Quick prompt sessions (in progress only) */}
-                  {qpSessionsList.filter((s: any) => s.status !== "finalized").map((session: any) => (
-                    <div
-                      key={session.id}
-                      onClick={() => handleLoadQuickSession(session.id)}
-                      className="bg-slate-900/40 border border-amber-500/15 rounded-2xl p-5 cursor-pointer hover:border-amber-500/40 hover:bg-slate-900/60 transition group flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="flex justify-between items-start mb-3">
-                          <span className="text-xs font-semibold px-2.5 py-1 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20 capitalize">
-                            {session.status.replace("_", " ")}
-                          </span>
-                          {session.platform && (
-                            <span className="text-[10px] text-slate-500 capitalize">{session.platform}</span>
-                          )}
-                        </div>
-                        <h4 className="font-bold text-base text-slate-200 group-hover:text-white transition line-clamp-2">
-                          {session.selected_topic_title || session.topic_theme || session.user_prompt}
-                        </h4>
-                      </div>
-                      <div className="mt-6 text-xs text-slate-500 flex justify-between items-center border-t border-slate-800/60 pt-3">
-                        <span>{new Date(session.created_at).toLocaleString()}</span>
-                        <div className="flex items-center gap-1 text-amber-400 font-medium opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span>Continue</span>
-                          <ChevronRight size={14} />
+                        <div className="mt-6 text-xs text-slate-500 flex justify-between items-center border-t border-slate-800/60 pt-3">
+                          <span>{new Date(session.created_at).toLocaleString()}</span>
+                          <div className={`flex items-center gap-1 font-medium opacity-0 group-hover:opacity-100 transition-opacity ${isNews ? "text-violet-400" : "text-amber-400"}`}>
+                            <span>Continue</span>
+                            <ChevronRight size={14} />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
           </div>
         )}
 
-        {/* â”€â”€ MANUAL MODE: IDLE STATE â”€â”€ */}
-        {!sessionId && mode === "manual" && (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-8">
-            <button onClick={() => setMode("choose")} className="self-start text-xs text-slate-500 hover:text-slate-300 flex items-center gap-1 transition">
-              Back to mode selection
-            </button>
-            <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-violet-500/20 to-indigo-600/20 flex items-center justify-center border border-violet-500/20">
-              <BookOpen size={48} className="text-violet-400" />
-            </div>
-            <div className="text-center max-w-lg">
-              <h2 className="text-3xl font-bold mb-3 bg-gradient-to-r from-violet-300 to-indigo-300 bg-clip-text text-transparent">
-                Manual Research Flow
-              </h2>
-              <p className="text-slate-400 leading-relaxed">
-                Get a research prompt, paste results from ChatGPT or Perplexity, and plan your week.
-              </p>
-            </div>
-            <div className="flex flex-col items-center gap-4 w-full max-w-md">
-              <div className="w-full">
-                <label className="text-xs text-slate-500 mb-1 block">Content Niche</label>
-                <input
-                  type="text"
-                  value={niche}
-                  onChange={(e) => setNiche(e.target.value)}
-                  placeholder="AI & Tech"
-                  className="w-full bg-slate-900 border border-slate-700 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-violet-500 transition"
-                />
-              </div>
-              <button
-                onClick={handleStart}
-                disabled={loading}
-                className="w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold py-3.5 px-6 rounded-xl transition-all shadow-lg shadow-violet-500/25 flex items-center justify-center gap-2 disabled:opacity-50"
-              >
-                {loading ? <Loader size={18} className="animate-spin" /> : <Sparkles size={18} />}
-                Start Creative Session
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-        {/* â•â•â•  QUICK PROMPT MODE (6-step flow)  â•â•â•â•â•â•â•â• */}
-        {/* â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */}
-        {mode === "quick" && (
-          <div>
-            {/* Quick Prompt Header */}
+        {(mode === "quick" || mode === "news") && (
+          <div className="space-y-6">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-3">
-                <button onClick={resetQuickPrompt} className="text-xs text-slate-500 hover:text-slate-300 transition">Back</button>
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-600/20 flex items-center justify-center">
-                  <Wand2 size={16} className="text-amber-400" />
+                <button
+                  onClick={resetQuickPrompt}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-900/40 hover:bg-slate-800 hover:text-slate-200 text-xs font-semibold text-slate-400 transition cursor-pointer"
+                >
+                  <ArrowLeft size={12} className="flex-shrink-0" />
+                  <span>Back</span>
+                </button>
+                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                  mode === "news" 
+                    ? "bg-gradient-to-br from-violet-500/20 to-indigo-600/20" 
+                    : "bg-gradient-to-br from-amber-500/20 to-orange-600/20"
+                }`}>
+                  {mode === "news" ? (
+                    <Newspaper size={16} className="text-violet-400" />
+                  ) : (
+                    <Wand2 size={16} className="text-amber-400" />
+                  )}
                 </div>
-                <h2 className="text-lg font-bold bg-gradient-to-r from-amber-300 to-orange-300 bg-clip-text text-transparent">
-                  Quick Prompt Pipeline
+                <h2 className={`text-lg font-bold bg-gradient-to-r bg-clip-text text-transparent ${
+                  mode === "news"
+                    ? "from-violet-300 to-indigo-300"
+                    : "from-amber-300 to-orange-300"
+                }`}>
+                  {mode === "news" ? "News Studio Pipeline" : "Series Studio Pipeline"}
                 </h2>
               </div>
               {/* Step indicator — clickable for completed steps */}
               <div className="flex items-center gap-1.5">
                 {[
-                  { n: 1, label: "Input" },
+                  { n: 1, label: mode === "news" ? "Prompt" : "Input" },
                   { n: 2, label: "Discover" },
                   { n: 3, label: "Pick" },
                   { n: 4, label: "Research" },
                   { n: 5, label: "Review" },
-                  { n: 6, label: "Prompt" },
+                  { n: 6, label: mode === "news" ? "Slides" : "Prompt" },
                 ].map(({ n, label }) => {
                   const isClickable = n <= qpStep && n !== qpStep;
+                  const borderClass = qpStep >= n
+                    ? (mode === "news" ? "bg-violet-500/20 border-violet-500 text-violet-400" : "bg-amber-500/20 border-amber-500 text-amber-400")
+                    : "border-slate-700 text-slate-600";
+                  
+                  const ringClass = isClickable
+                    ? (mode === "news"
+                      ? "cursor-pointer hover:scale-110 hover:bg-violet-500/30 hover:shadow-md hover:shadow-violet-500/20"
+                      : "cursor-pointer hover:scale-110 hover:bg-amber-500/30 hover:shadow-md hover:shadow-amber-500/20")
+                    : (n === qpStep ? (mode === "news" ? "ring-2 ring-violet-400/30" : "ring-2 ring-amber-400/30") : "");
+
                   return (
                     <div key={n} className="flex items-center gap-1">
                       <button
                         onClick={() => { if (isClickable) setQpStep(n as 1 | 2 | 3 | 4 | 5 | 6); }}
                         disabled={!isClickable}
-                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all ${qpStep >= n
-                          ? "bg-amber-500/20 border-amber-500 text-amber-400"
-                          : "border-slate-700 text-slate-600"
-                          } ${isClickable ? "cursor-pointer hover:scale-110 hover:bg-amber-500/30 hover:shadow-md hover:shadow-amber-500/20" : n === qpStep ? "ring-2 ring-amber-400/30" : ""}`}
+                        className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold border-2 transition-all ${borderClass} ${ringClass}`}
                       >
                         {qpStep > n ? <Check size={12} /> : n}
                       </button>
-                      <span className={`text-[10px] font-medium hidden xl:inline ${isClickable ? "text-amber-400 cursor-pointer hover:text-amber-300" : qpStep >= n ? "text-amber-400" : "text-slate-600"}`}
+                      <span className={`text-[10px] font-medium hidden xl:inline ${
+                        isClickable 
+                          ? (mode === "news" ? "text-violet-400 cursor-pointer hover:text-violet-300" : "text-amber-400 cursor-pointer hover:text-amber-300") 
+                          : (qpStep >= n ? (mode === "news" ? "text-violet-400" : "text-amber-400") : "text-slate-600")
+                      }`}
                         onClick={() => { if (isClickable) setQpStep(n as 1 | 2 | 3 | 4 | 5 | 6); }}
                       >{label}</span>
-                      {n < 6 && <div className={`w-4 h-0.5 rounded ${qpStep > n ? "bg-amber-500/40" : "bg-slate-800"}`} />}
+                      {n < 6 && <div className={`w-4 h-0.5 rounded ${qpStep > n ? (mode === "news" ? "bg-violet-500/40" : "bg-amber-500/40") : "bg-slate-800"}`} />}
                     </div>
                   );
                 })}
               </div>
             </div>
 
-
-
-            {/* — Step 1: Flexible Input (Topic + Length + Optional Filter) — */}
+            {/* — Step 1: Flexible Input (Topic + Length + Optional Filter) OR News Discovery Prompt — */}
             {qpStep === 1 && (
-              <div className="max-w-2xl mx-auto">
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 backdrop-blur">
-                  <h3 className="text-xl font-bold text-amber-300 mb-2 flex items-center gap-2">
-                    <Wand2 size={20} /> What do you want to create?
-                  </h3>
+              mode === "news" ? (
+                <div className="max-w-2xl mx-auto space-y-4">
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-bold text-violet-300 flex items-center gap-2">
+                        <Newspaper size={18} /> News Discovery Prompt
+                      </h3>
+                      <button onClick={() => qpCopyPrompt(qpDiscoveryPrompt, setQpCopied)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-lg text-xs font-semibold transition">
+                        {qpCopied ? <Check size={14} /> : <Copy size={14} />}
+                        {qpCopied ? "Copied!" : "Copy Prompt"}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-2">
+                      Copy this pre-built prompt into <strong>Perplexity</strong> to discover the latest AI and Tech news stories.
+                    </p>
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 max-h-[35vh] overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                      {qpDiscoveryPrompt}
+                    </div>
+                    <button onClick={() => setQpStep(2)}
+                      className="mt-4 w-full bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-violet-500/20 flex items-center justify-center gap-2">
+                      <span>Continue to Discover Step</span>
+                      <ArrowRight size={18} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="max-w-2xl mx-auto">
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-8 backdrop-blur">
+                    <h3 className="text-xl font-bold text-amber-300 mb-2 flex items-center gap-2">
+                      <Wand2 size={20} /> What do you want to create?
+                    </h3>
                   <p className="text-sm text-slate-400 mb-6">
                     Describe your idea below, or leave it empty and we'll discover trending topics for you.
                   </p>
@@ -1557,36 +1935,51 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                   )}
                 </div>
               </div>
-            )}
+            ))}
 
-            {/* â”€â”€ Step 2: Topic Discovery Prompt + Paste â”€â”€ */}
+            {/* ── Step 2: Topic Discovery Prompt + Paste ── */}
             {qpStep === 2 && (
               <div className="space-y-4">
+                {mode !== "news" && (
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-bold text-violet-300 flex items-center gap-2">
+                        <Search size={18} /> Topic Discovery Prompt
+                      </h3>
+                      <button onClick={() => qpCopyPrompt(qpDiscoveryPrompt, setQpCopied)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-lg text-xs font-semibold transition">
+                        {qpCopied ? <Check size={14} /> : <Copy size={14} />}
+                        {qpCopied ? "Copied!" : "Copy Prompt"}
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-500 mb-2">Copy this into <strong>Perplexity</strong> to discover trending topics, then paste the result below.</p>
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 max-h-[30vh] overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                      {qpDiscoveryPrompt}
+                    </div>
+                  </div>
+                )}
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold text-violet-300 flex items-center gap-2">
-                      <Search size={18} /> Topic Discovery Prompt
+                    <h3 className={`text-lg font-bold flex items-center gap-2 mb-3 ${mode === "news" ? "text-violet-300" : "text-emerald-300"}`}>
+                      <ArrowRight size={18} /> Paste Perplexity Results
                     </h3>
-                    <button onClick={() => qpCopyPrompt(qpDiscoveryPrompt, setQpCopied)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-lg text-xs font-semibold transition">
-                      {qpCopied ? <Check size={14} /> : <Copy size={14} />}
-                      {qpCopied ? "Copied!" : "Copy Prompt"}
-                    </button>
+                    {mode === "news" && (
+                      <button onClick={() => qpCopyPrompt(qpDiscoveryPrompt, setQpCopied)}
+                        className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1 rounded-lg text-[10px] font-semibold transition border border-slate-700">
+                        {qpCopied ? <Check size={10} /> : <Copy size={10} />}
+                        <span>View Discovery Prompt</span>
+                      </button>
+                    )}
                   </div>
-                  <p className="text-xs text-slate-500 mb-2">Copy this into <strong>Perplexity</strong> to discover trending topics, then paste the result below.</p>
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 max-h-[30vh] overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                    {qpDiscoveryPrompt}
-                  </div>
-                </div>
-                <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
-                  <h3 className="text-lg font-bold text-emerald-300 flex items-center gap-2 mb-3">
-                    <ArrowRight size={18} /> Paste Perplexity Results
-                  </h3>
                   <textarea value={qpPastedTopics} onChange={(e) => setQpPastedTopics(e.target.value)}
                     placeholder="Paste the response from Perplexity here..."
-                    className="w-full h-[20vh] bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 resize-none focus:outline-none focus:border-emerald-500/50 transition" />
+                    className="w-full h-[25vh] bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 resize-none focus:outline-none focus:border-violet-500/50 transition" />
                   <button onClick={handleQpSubmitTopics} disabled={qpLoading || !qpPastedTopics.trim()}
-                    className="mt-3 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-40">
+                    className={`mt-3 w-full font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-40 ${
+                      mode === "news"
+                        ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-violet-500/20"
+                        : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-500/20"
+                    }`}>
                     {qpLoading ? <Loader size={18} className="animate-spin" /> : <Zap size={18} />}
                     Parse & Show Topics
                   </button>
@@ -1594,63 +1987,87 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
               </div>
             )}
 
-            {/* â”€â”€ Step 3: Topic Selection â”€â”€ */}
+            {/* ── Step 3: Topic Selection ── */}
             {qpStep === 3 && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                    <TrendingUp size={18} className="text-amber-400" /> Select a Topic for Your Series
+                    <TrendingUp size={18} className={mode === "news" ? "text-violet-400" : "text-amber-400"} /> 
+                    {mode === "news" ? "Select a News Topic for Your Slide Deck" : "Select a Topic for Your Series"}
                   </h3>
                   <span className="text-xs text-slate-500">{qpDiscoveredTopics.length} topics discovered</span>
                 </div>
                 <div className="grid grid-cols-1 gap-3">
-                  {qpDiscoveredTopics.map((topic) => (
-                    <div key={topic.id} onClick={() => handleQpSelectTopic(topic.id)}
-                      className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 cursor-pointer transition-all hover:scale-[1.005] hover:border-amber-500/40">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1.5">
-                            <h4 className="font-bold text-slate-100 text-base">{topic.title}</h4>
-                            {topic.relevance_score > 0 && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/20">
-                                {topic.relevance_score.toFixed(1)}
+                  {qpDiscoveredTopics.map((topic) => {
+                    return (
+                      <div key={topic.id} onClick={() => handleQpSelectTopic(topic.id)}
+                        className={`bg-slate-900/60 border border-slate-800 rounded-2xl p-5 cursor-pointer transition-all hover:scale-[1.005] ${
+                          mode === "news" ? "hover:border-violet-500/40" : "hover:border-amber-500/40"
+                        }`}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                              <h4 className="font-bold text-slate-100 text-base">{topic.title}</h4>
+                              {topic.relevance_score > 0 && (
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                                  mode === "news" 
+                                    ? "bg-violet-500/15 text-violet-400 border-violet-500/20" 
+                                    : "bg-amber-500/15 text-amber-400 border-amber-500/20"
+                                }`}>
+                                  {topic.relevance_score.toFixed(1)}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* News Date */}
+                            <div className="flex items-center gap-2 mb-2.5 px-3 py-1.5 rounded-xl bg-slate-950/45 border border-slate-800/50 text-xs w-fit">
+                              <Calendar size={12} className={`${mode === "news" ? "text-violet-400" : "text-amber-400"} flex-shrink-0`} />
+                              <span className="font-semibold text-slate-300">
+                                {topic.news_date ? `News Date: ${topic.news_date}` : "News Date: Unknown"}
                               </span>
+                            </div>
+
+                            <p className="text-xs text-slate-400 mb-2">{topic.summary}</p>
+                            {topic.why_trending && (
+                              <p className="text-xs text-emerald-400/80 mb-2">
+                                <span className="font-semibold">Why trending:</span> {topic.why_trending}
+                              </p>
+                            )}
+                            {topic.suggested_angles.length > 0 && (
+                              <div className="flex flex-wrap gap-1.5">
+                                {topic.suggested_angles.slice(0, 4).map((angle, i) => (
+                                  <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                                    {angle.length > 50 ? angle.substring(0, 50) + "..." : angle}
+                                  </span>
+                                ))}
+                              </div>
                             )}
                           </div>
-                          <p className="text-xs text-slate-400 mb-2">{topic.summary}</p>
-                          {topic.why_trending && (
-                            <p className="text-xs text-emerald-400/80 mb-2">
-                              <span className="font-semibold">Why trending:</span> {topic.why_trending}
-                            </p>
-                          )}
-                          {topic.suggested_angles.length > 0 && (
-                            <div className="flex flex-wrap gap-1.5">
-                              {topic.suggested_angles.slice(0, 4).map((angle, i) => (
-                                <span key={i} className="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
-                                  {angle.length > 50 ? angle.substring(0, 50) + "..." : angle}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        <div className="flex-shrink-0 w-9 h-9 rounded-full bg-amber-500/10 flex items-center justify-center border border-amber-500/20">
-                          {qpLoading ? <Loader size={16} className="animate-spin text-amber-400" /> : <ArrowRight size={16} className="text-amber-400" />}
+                          <div className={`flex-shrink-0 w-9 h-9 rounded-full flex items-center justify-center border ${
+                            mode === "news" 
+                              ? "bg-violet-500/10 border-violet-500/20 text-violet-400" 
+                              : "bg-amber-500/10 border-amber-500/20 text-amber-400"
+                          }`}>
+                            {qpLoading ? <Loader size={16} className="animate-spin" /> : <ArrowRight size={16} />}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* â”€â”€ Step 4: Deep Research Prompt + Paste â”€â”€ */}
+            {/* ── Step 4: Deep Research Prompt + Paste ── */}
             {qpStep === 4 && (
               <div className="space-y-4">
                 {qpSelectedTopic && (
-                  <div className="bg-amber-500/5 border border-amber-500/20 rounded-2xl p-4">
+                  <div className={`border rounded-2xl p-4 ${
+                    mode === "news" ? "bg-violet-500/5 border-violet-500/20" : "bg-amber-500/5 border-amber-500/20"
+                  }`}>
                     <div className="flex items-center gap-2 mb-1">
-                      <TrendingUp size={14} className="text-amber-400" />
-                      <span className="text-xs font-bold text-amber-400">Selected Topic</span>
+                      <TrendingUp size={14} className={mode === "news" ? "text-violet-400" : "text-amber-400"} />
+                      <span className={`text-xs font-bold ${mode === "news" ? "text-violet-400" : "text-amber-400"}`}>Selected Topic</span>
                     </div>
                     <h4 className="text-base font-bold text-slate-100">{qpSelectedTopic.title}</h4>
                     <p className="text-xs text-slate-400 mt-0.5">{qpSelectedTopic.summary}</p>
@@ -1673,14 +2090,18 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                   </div>
                 </div>
                 <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
-                  <h3 className="text-lg font-bold text-emerald-300 flex items-center gap-2 mb-3">
+                  <h3 className={`text-lg font-bold flex items-center gap-2 mb-3 ${mode === "news" ? "text-violet-300" : "text-emerald-300"}`}>
                     <ArrowRight size={18} /> Paste Research Results
                   </h3>
                   <textarea value={qpPastedResearch} onChange={(e) => setQpPastedResearch(e.target.value)}
                     placeholder="Paste the response from Claude/Perplexity here..."
-                    className="w-full h-[20vh] bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 resize-none focus:outline-none focus:border-emerald-500/50 transition" />
+                    className="w-full h-[20vh] bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 resize-none focus:outline-none focus:border-violet-500/50 transition" />
                   <button onClick={handleQpSubmitResearch} disabled={qpLoading || !qpPastedResearch.trim()}
-                    className="mt-3 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-40">
+                    className={`mt-3 w-full font-bold py-3 px-6 rounded-xl transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-40 ${
+                      mode === "news"
+                        ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-violet-500/20"
+                        : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-500/20"
+                    }`}>
                     {qpLoading ? <Loader size={18} className="animate-spin" /> : <Zap size={18} />}
                     Parse & Review Plan
                   </button>
@@ -1691,20 +2112,50 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
             {/* Step 5: Day-by-Day Review + Per-Day Prompt Carousel */}
             {qpStep === 5 && qpPlan && (() => {
               const activeDay = qpPlan.days.find(d => d.day_number === qpActivePromptDay) || qpPlan.days[0];
-              const dayPrompt = activeDay ? buildDayPrompt(activeDay, qpPlan, qpPlatform, qpSessionId) : "";
+              const dayPrompt = activeDay 
+                ? (mode === "news"
+                  ? buildNewsSlidePrompt(activeDay, qpPlan, qpPlatform, qpSessionId, seriesTheme.name)
+                  : buildDayPrompt(activeDay, qpPlan, qpPlatform, qpSessionId, seriesTheme.name))
+                : "";
               return (
                 <div className="space-y-4">
                   <div className="flex items-center justify-between mb-2">
-                    <h3 className="text-lg font-bold text-slate-200 flex items-center gap-2">
-                      <Calendar size={18} style={{ color: seriesTheme.pri }} /> Series Plan - {qpPlan.days.length} Days
-                      <span className="text-xs font-normal px-2 py-0.5 rounded-full ml-2" style={{ background: seriesTheme.badgeBg, color: seriesTheme.badgeText, border: `1px solid ${seriesTheme.border}33` }}>
-                        {seriesTheme.name}
-                      </span>
-                    </h3>
+                    <div className="flex items-center gap-4">
+                      <h3 className="text-lg font-bold text-slate-200 flex items-center gap-2">
+                        <Calendar size={18} style={{ color: seriesTheme.pri }} /> 
+                        {mode === "news" ? "News Post Review" : `Series Plan - ${qpPlan.days.length} Days`}
+                      </h3>
+                      {/* Theme Selector */}
+                      <div className="flex items-center gap-2 bg-slate-950/40 border border-slate-800/80 rounded-xl px-2.5 py-1">
+                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Visual Theme:</span>
+                        <select
+                          value={seriesTheme.name}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setQpSelectedTheme(val);
+                            if (qpSessionId) {
+                              localStorage.setItem(`creative_theme_${qpSessionId}`, val);
+                            }
+                          }}
+                          className="bg-transparent border-none text-xs font-bold focus:outline-none cursor-pointer pr-1"
+                          style={{ color: seriesTheme.pri }}
+                        >
+                          {SERIES_THEMES.map(theme => (
+                            <option key={theme.name} value={theme.name} className="bg-slate-900 text-slate-300 font-sans">
+                              {theme.name.charAt(0).toUpperCase() + theme.name.slice(1)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
                     <button onClick={handleQpApprove} disabled={qpLoading}
-                      className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2 px-5 rounded-xl text-sm transition-all shadow-lg shadow-emerald-500/20 flex items-center gap-2 disabled:opacity-40">
+                      className={`font-bold py-2 px-5 rounded-xl text-sm transition-all shadow-lg flex items-center gap-2 disabled:opacity-40 ${
+                        mode === "news"
+                          ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-violet-500/20"
+                          : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-500/20"
+                      }`}>
                       {qpLoading ? <Loader size={16} className="animate-spin" /> : <Check size={16} />}
-                      Approve & Generate Final Prompt
+                      {mode === "news" ? "Approve & Save to HQ Board" : "Approve & Generate Final Prompt"}
                     </button>
                   </div>
 
@@ -1723,11 +2174,15 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                             <div onClick={(e) => { e.stopPropagation(); toggleDayExpand(day.day_number); }} className="p-4 flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: seriesTheme.badgeBg }}>
-                                  <span className="text-sm font-bold" style={{ color: seriesTheme.pri }}>{day.day_number}</span>
+                                  <span className="text-sm font-bold" style={{ color: seriesTheme.pri }}>
+                                    {mode === "news" ? <Newspaper size={16} /> : day.day_number}
+                                  </span>
                                 </div>
                                 <div>
                                   <h4 className="text-base font-bold text-slate-100">{day.title}</h4>
-                                  <span className="text-xs text-slate-500">Day {day.day_number} - {day.content_type}</span>
+                                  <span className="text-xs text-slate-500">
+                                    {mode === "news" ? `News Date: ${day.notes || "Recent"}` : `Day ${day.day_number} - ${day.content_type}`}
+                                  </span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2">
@@ -1738,11 +2193,11 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                             {isExpanded && (
                               <div className="px-4 pb-4 space-y-2 border-t border-slate-800/60 pt-3">
                                 {day.hook && (<div><span className="text-xs font-semibold" style={{ color: seriesTheme.acc }}>Hook: </span><span className="text-xs text-slate-300 italic">"{day.hook}"</span></div>)}
-                                {day.teaching_goal && (<div><span className="text-xs font-semibold text-violet-400">Teaching Goal: </span><span className="text-xs text-slate-400">{day.teaching_goal}</span></div>)}
-                                {day.angle && (<div><span className="text-xs font-semibold text-emerald-400">Angle: </span><span className="text-xs text-slate-400">{day.angle}</span></div>)}
+                                {day.teaching_goal && (<div><span className="text-xs font-semibold text-violet-400">{mode === "news" ? "News Details: " : "Teaching Goal: "}</span><span className="text-xs text-slate-400">{day.teaching_goal}</span></div>)}
+                                {day.angle && (<div><span className="text-xs font-semibold text-emerald-400">{mode === "news" ? "Implications: " : "Angle: "}</span><span className="text-xs text-slate-400">{day.angle}</span></div>)}
                                 {day.key_points.length > 0 && (
                                   <div>
-                                    <p className="text-xs font-semibold text-violet-400 mb-1">Key Points:</p>
+                                    <p className="text-xs font-semibold text-violet-400 mb-1">{mode === "news" ? "Key Facts & Details:" : "Key Points:"}</p>
                                     <ul className="text-xs text-slate-400 space-y-0.5">
                                       {day.key_points.map((kp, i) => (<li key={i} className="flex items-start gap-1.5"><span className="text-violet-500 mt-0.5">-</span> {kp}</li>))}
                                     </ul>
@@ -1836,29 +2291,61 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
             {/* Step 6: Production Prompt (per-day carousel + full prompt) */}
             {qpStep === 6 && qpPlan && (() => {
               const activeDay6 = qpPlan.days.find(d => d.day_number === qpActivePromptDay) || qpPlan.days[0];
-              const dayPrompt6 = activeDay6 ? buildDayPrompt(activeDay6, qpPlan, qpPlatform, qpSessionId) : "";
+              const dayPrompt6 = activeDay6 
+                ? (mode === "news"
+                  ? buildNewsSlidePrompt(activeDay6, qpPlan, qpPlatform, qpSessionId, seriesTheme.name)
+                  : buildDayPrompt(activeDay6, qpPlan, qpPlatform, qpSessionId, seriesTheme.name))
+                : "";
               return (
                 <div className="space-y-6">
                   {/* Per-Day Carousel */}
                   <div className="bg-slate-900/60 border rounded-2xl p-6 backdrop-blur" style={{ borderColor: `${seriesTheme.border}44`, borderTop: `3px solid ${seriesTheme.border}` }}>
                     <div className="flex items-center justify-between mb-4">
-                      <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: seriesTheme.badgeText }}>
-                        <Sparkles size={18} /> Per-Day Production Prompts
-                      </h3>
-                      <div className="flex items-center gap-1.5">
-                        <button onClick={() => setQpActivePromptDay(Math.max(1, qpActivePromptDay - 1))} disabled={qpActivePromptDay <= 1}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 transition disabled:opacity-30">
-                          <ArrowLeft size={14} />
-                        </button>
-                        <span className="text-sm text-slate-400 font-mono px-3">Day {qpActivePromptDay} of {qpPlan.days.length}</span>
-                        <button onClick={() => setQpActivePromptDay(Math.min(qpPlan.days.length, qpActivePromptDay + 1))} disabled={qpActivePromptDay >= qpPlan.days.length}
-                          className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 transition disabled:opacity-30">
-                          <ArrowRight size={14} />
-                        </button>
+                      <div className="flex items-center gap-4">
+                        <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: seriesTheme.badgeText }}>
+                          <Sparkles size={18} /> {mode === "news" ? "HTML Slide Deck Production Prompt" : "Per-Day Production Prompts"}
+                        </h3>
+                        {/* Theme Selector */}
+                        <div className="flex items-center gap-2 bg-slate-950/40 border border-slate-800/80 rounded-xl px-2.5 py-1">
+                          <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Visual Theme:</span>
+                          <select
+                            value={seriesTheme.name}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setQpSelectedTheme(val);
+                              if (qpSessionId) {
+                                localStorage.setItem(`creative_theme_${qpSessionId}`, val);
+                              }
+                            }}
+                            className="bg-transparent border-none text-xs font-bold focus:outline-none cursor-pointer pr-1"
+                            style={{ color: seriesTheme.pri }}
+                          >
+                            {SERIES_THEMES.map(theme => (
+                              <option key={theme.name} value={theme.name} className="bg-slate-900 text-slate-300 font-sans">
+                                {theme.name.charAt(0).toUpperCase() + theme.name.slice(1)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
+                      {mode !== "news" && (
+                        <div className="flex items-center gap-1.5">
+                          <button onClick={() => setQpActivePromptDay(Math.max(1, qpActivePromptDay - 1))} disabled={qpActivePromptDay <= 1}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 transition disabled:opacity-30">
+                            <ArrowLeft size={14} />
+                          </button>
+                          <span className="text-sm text-slate-400 font-mono px-3">Day {qpActivePromptDay} of {qpPlan.days.length}</span>
+                          <button onClick={() => setQpActivePromptDay(Math.min(qpPlan.days.length, qpActivePromptDay + 1))} disabled={qpActivePromptDay >= qpPlan.days.length}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center bg-slate-800 hover:bg-slate-700 text-slate-400 transition disabled:opacity-30">
+                            <ArrowRight size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
 
-                    <p className="text-sm text-slate-500 mb-3"><strong style={{ color: seriesTheme.acc }}>{activeDay6?.title}</strong> - Copy this into Claude, Gemini, or GPT to generate Day {qpActivePromptDay}'s content.</p>
+                    <p className="text-sm text-slate-500 mb-3">
+                      <strong style={{ color: seriesTheme.acc }}>{activeDay6?.title}</strong> - {mode === "news" ? "Copy this into Claude, Gemini, or GPT to generate the final HTML/CSS/JS slide deck." : `Copy this into Claude, Gemini, or GPT to generate Day ${qpActivePromptDay}'s content.`}
+                    </p>
 
                     <pre className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 font-mono max-h-[40vh] overflow-y-auto whitespace-pre-wrap leading-relaxed">{dayPrompt6}</pre>
 
@@ -1871,26 +2358,12 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
                       className="mt-3 w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition"
                       style={{ background: seriesTheme.badgeBg, color: seriesTheme.badgeText, border: `1px solid ${seriesTheme.border}33` }}>
                       {copiedPromptId === qpActivePromptDay ? <Check size={14} /> : <Copy size={14} />}
-                      {copiedPromptId === qpActivePromptDay ? "Copied!" : `Copy Day ${qpActivePromptDay} Prompt`}
+                      {copiedPromptId === qpActivePromptDay ? "Copied!" : `Copy Slide Production Prompt`}
                     </button>
-
-                    {/* Day dots */}
-                    <div className="flex gap-1.5 mt-3 justify-center flex-wrap">
-                      {qpPlan.days.map(d => (
-                        <button key={d.day_number} onClick={() => setQpActivePromptDay(d.day_number)}
-                          className="w-7 h-7 rounded-full text-[10px] font-bold transition-all"
-                          style={{
-                            background: d.day_number === qpActivePromptDay ? seriesTheme.pri : "rgba(100,116,139,0.2)",
-                            color: d.day_number === qpActivePromptDay ? "#fff" : "#94a3b8",
-                          }}>
-                          {d.day_number}
-                        </button>
-                      ))}
-                    </div>
                   </div>
 
-                  {/* Full Production Prompt (collapsible) */}
-                  {qpProductionPrompt && (
+                  {/* Full Production Prompt (collapsible) - Hide for News mode as it's redundant */}
+                  {mode !== "news" && qpProductionPrompt && (
                     <div className="bg-slate-900/60 border border-emerald-500/20 rounded-2xl p-6 backdrop-blur">
                       <div className="flex items-center justify-between mb-4">
                         <h3 className="text-lg font-bold text-emerald-300 flex items-center gap-2"><Check size={18} /> Full Series Prompt (All Days)</h3>
@@ -1907,360 +2380,100 @@ export default function CreativeManager({ weekId }: { weekId: string }) {
 
                   <div className="flex gap-3">
                     <button onClick={() => setQpStep(5)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 px-4 rounded-xl text-sm transition">Back to Review</button>
-                    <button onClick={resetQuickPrompt} className="flex-1 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-semibold py-2.5 px-4 rounded-xl text-sm transition shadow-lg shadow-violet-500/20">Start New Session</button>
+                    <button onClick={resetQuickPrompt} className={`flex-1 font-semibold py-2.5 px-4 rounded-xl text-sm transition shadow-lg ${
+                      mode === "news"
+                        ? "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-violet-500/20"
+                        : "bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-emerald-500/20"
+                    }`}>Start New Session</button>
                   </div>
                 </div>
               );
             })()}
 
-
-
-            {/* Floating Chat Bar (bottom center, Steps 2-6) */}
-            {mode === "quick" && qpStep >= 2 && (
-              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-2xl px-4">
+            {/* Floating Chat Assistant (bottom right, Steps 2-6) */}
+            {(mode === "quick" || mode === "news") && qpStep >= 2 && (
+              <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3 w-[380px] max-w-[90vw]">
                 {/* Chat History (expanded) */}
                 {qpChatOpen && (
-                  <div className="bg-slate-900/95 border border-slate-700 rounded-2xl mb-2 backdrop-blur-xl shadow-2xl shadow-black/40 max-h-[40vh] overflow-hidden flex flex-col">
-                    <div className="p-3 border-b border-slate-800 flex items-center justify-between">
-                      <h4 className="text-xs font-bold text-amber-300 flex items-center gap-1.5"><MessageSquare size={12} /> Chat Assistant</h4>
+                  <div className="bg-slate-900/95 border border-slate-700 rounded-2xl backdrop-blur-xl shadow-2xl shadow-black/40 overflow-hidden flex flex-col" style={{ height: "400px" }}>
+                    <div className="p-3 bg-slate-950/40 border-b border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare size={14} className={mode === "news" ? "text-violet-400" : "text-amber-400"} />
+                        <h4 className={`text-xs font-bold ${mode === "news" ? "text-violet-300" : "text-amber-300"}`}>
+                          {mode === "news" ? "News Studio Assistant" : "Series Studio Assistant"}
+                        </h4>
+                      </div>
                       <button onClick={() => setQpChatOpen(false)} className="text-slate-500 hover:text-slate-300 text-xs transition">Close</button>
                     </div>
                     <div className="flex-1 overflow-y-auto p-3 space-y-2">
                       {qpChatHistory.length === 0 && (
                         <div className="text-xs text-slate-600 text-center py-4">
+                          <Sparkles size={20} className={`mx-auto mb-2 ${mode === "news" ? "text-violet-400/50" : "text-amber-400/50"}`} />
                           <p className="mb-1.5">Try saying:</p>
                           <div className="space-y-1 text-slate-500">
-                            {qpStep < 5 ? (<><p>"Focus more on practical tutorials"</p><p>"I want beginner-friendly content"</p></>) : (<><p>"Improve the hook for day 2"</p><p>"Change day 3 to a reel"</p><p>"Swap day 1 and day 4"</p></>)}
+                            {qpStep < 5 ? (
+                              mode === "news" ? (
+                                <><p>"Focus on developer implications"</p><p>"Explain benchmarks more deeply"</p></>
+                              ) : (
+                                <><p>"Focus more on practical tutorials"</p><p>"I want beginner-friendly content"</p></>
+                              )
+                            ) : (
+                              mode === "news" ? (
+                                <><p>"Make the hook catchier"</p><p>"Add a slide about performance comparisons"</p></>
+                              ) : (
+                                <><p>"Improve the hook for day 2"</p><p>"Change day 3 to a reel"</p><p>"Swap day 1 and day 4"</p></>
+                              )
+                            )}
                           </div>
                         </div>
                       )}
                       {qpChatHistory.map((msg, i) => (
-                        <div key={i} className={`text-xs rounded-xl p-2.5 max-w-[85%] ${msg.role === "user" ? "bg-amber-500/10 text-amber-200 border border-amber-500/20 ml-auto" : "bg-slate-800 text-slate-300 border border-slate-700"}`}>
+                        <div key={i} className={`text-xs rounded-xl p-2.5 max-w-[85%] ${
+                          msg.role === "user" 
+                            ? (mode === "news" ? "bg-violet-500/10 text-violet-200 border border-violet-500/20 ml-auto" : "bg-amber-500/10 text-amber-200 border border-amber-500/20 ml-auto") 
+                            : "bg-slate-800 text-slate-300 border border-slate-700"
+                        }`}>
                           {msg.message}
                         </div>
                       ))}
                       <div ref={chatEndRef} />
                     </div>
+                    {/* Chat Input Inside Drawer */}
+                    <div className="p-2.5 bg-slate-950/80 border-t border-slate-800 flex gap-2 items-center">
+                      <input type="text" value={qpChatMsg} onChange={(e) => setQpChatMsg(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) handleQpChat(); }}
+                        placeholder={qpStep < 5 ? "Ask questions or leave notes..." : "Edit the plan with natural language..."}
+                        className={`flex-1 bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-300 focus:outline-none transition placeholder-slate-600 ${
+                          mode === "news" ? "focus:border-violet-500/50" : "focus:border-amber-500/50"
+                        }`} />
+                      <button onClick={handleQpChat} disabled={qpLoading || !qpChatMsg.trim()}
+                        className={`w-8 h-8 rounded-xl flex items-center justify-center text-white transition disabled:opacity-40 shrink-0 ${
+                          mode === "news"
+                            ? "bg-violet-600 hover:bg-violet-500 shadow-violet-500/20"
+                            : "bg-amber-600 hover:bg-amber-500 shadow-amber-500/20"
+                        }`}>
+                        {qpLoading ? <Loader size={12} className="animate-spin" /> : <Send size={12} />}
+                      </button>
+                    </div>
                   </div>
                 )}
 
-                {/* Chat Input Bar */}
-                <div className="bg-slate-900/95 border border-slate-700 rounded-2xl backdrop-blur-xl shadow-2xl shadow-black/40 p-2.5 flex gap-2 items-center">
-                  <button onClick={() => setQpChatOpen(!qpChatOpen)} className="w-8 h-8 rounded-lg flex items-center justify-center bg-amber-500/15 text-amber-400 hover:bg-amber-500/25 transition shrink-0">
-                    <MessageSquare size={14} />
-                  </button>
-                  <input type="text" value={qpChatMsg} onChange={(e) => setQpChatMsg(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) handleQpChat(); }}
-                    onFocus={() => setQpChatOpen(true)}
-                    placeholder={qpStep < 5 ? "Ask questions or leave notes..." : "Edit the plan with natural language..."}
-                    className="flex-1 bg-slate-950/80 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-300 focus:outline-none focus:border-amber-500/50 transition placeholder-slate-600" />
-                  <button onClick={handleQpChat} disabled={qpLoading || !qpChatMsg.trim()}
-                    className="w-9 h-9 rounded-xl flex items-center justify-center bg-amber-600 hover:bg-amber-500 text-white transition disabled:opacity-40 shrink-0">
-                    {qpLoading ? <Loader size={14} className="animate-spin" /> : <Send size={14} />}
-                  </button>
-                </div>
+                {/* Floating Chat Bubble Toggle Button */}
+                <button onClick={() => setQpChatOpen(!qpChatOpen)} 
+                  className={`w-12 h-12 rounded-full flex items-center justify-center shadow-lg transition-all transform hover:scale-105 shrink-0 relative ${
+                    qpChatOpen 
+                      ? (mode === "news" ? "bg-slate-800 text-violet-400 border border-slate-700 hover:bg-slate-700" : "bg-slate-800 text-amber-400 border border-slate-700 hover:bg-slate-700") 
+                      : (mode === "news"
+                        ? "bg-gradient-to-r from-violet-500 to-indigo-500 hover:from-violet-400 hover:to-indigo-400 text-white shadow-violet-500/20"
+                        : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 shadow-amber-500/20")
+                  }`}>
+                  <MessageSquare size={20} />
+                  {qpChatHistory.length > 0 && !qpChatOpen && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-slate-950 rounded-full" />
+                  )}
+                </button>
               </div>
             )}
-          </div>
-        )}
-
-
-
-
-        {/* â”€â”€ RESEARCH TAB â”€â”€ */}
-        {sessionId && tab === "research" && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Prompt */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-bold text-violet-300 flex items-center gap-2">
-                  <BookOpen size={18} /> Research Prompt
-                </h3>
-                <button
-                  onClick={copyPrompt}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-300 rounded-lg text-xs font-semibold transition"
-                >
-                  {copied ? <Check size={14} /> : <Copy size={14} />}
-                  {copied ? "Copied!" : "Copy Prompt"}
-                </button>
-              </div>
-              <p className="text-xs text-slate-500 mb-3">
-                Copy this prompt into <strong>ChatGPT</strong> or <strong>Perplexity</strong> and paste the result below.
-              </p>
-              <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 font-mono max-h-[50vh] overflow-y-auto whitespace-pre-wrap leading-relaxed">
-                {researchPrompt}
-              </div>
-            </div>
-
-            {/* Paste area */}
-            <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
-              <h3 className="text-lg font-bold text-emerald-300 flex items-center gap-2 mb-4">
-                <ArrowRight size={18} /> Paste Research Results
-              </h3>
-              <textarea
-                value={pastedResearch}
-                onChange={(e) => setPastedResearch(e.target.value)}
-                placeholder="Paste the research response here..."
-                className="w-full h-[50vh] bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm text-slate-300 font-mono resize-none focus:outline-none focus:border-emerald-500/50 transition"
-              />
-              <button
-                onClick={handleSubmitResearch}
-                disabled={loading || !pastedResearch.trim()}
-                className="mt-4 w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center gap-2 disabled:opacity-40"
-              >
-                {loading ? <Loader size={18} className="animate-spin" /> : <Zap size={18} />}
-                Analyze & Score Topics
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* â”€â”€ TOPICS TAB â”€â”€ */}
-        {sessionId && tab === "topics" && (
-          <div>
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 border-b border-slate-800 pb-5">
-              <div>
-                <h2 className="text-xl font-bold text-slate-200">
-                  Discovered Topics
-                  <span className="text-sm text-slate-500 ml-2">({selectedIds.size} selected)</span>
-                </h2>
-                <p className="text-xs text-slate-500 mt-0.5">Filter topics by platform to target specific audiences.</p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-500 font-semibold mr-1">Filter:</span>
-                {["all", "instagram", "linkedin", "x"].map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => setPlatformFilter(p)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition cursor-pointer ${platformFilter === p
-                      ? "bg-violet-600/25 border-violet-500/50 text-violet-300 font-bold"
-                      : "bg-slate-900/40 border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700"
-                      }`}
-                  >
-                    {p === "all" ? "All Platforms" : p === "x" ? "X (Twitter)" : p.charAt(0).toUpperCase() + p.slice(1)}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={handlePlanWeek}
-                disabled={loading || selectedIds.size === 0}
-                className="bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-bold py-2.5 px-5 rounded-xl text-sm transition-all shadow-lg shadow-violet-500/20 flex items-center gap-2 disabled:opacity-40"
-              >
-                {loading ? <Loader size={16} className="animate-spin" /> : <Calendar size={16} />}
-                Plan Week with Selected
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {topics
-                .filter((t) => {
-                  if (platformFilter === "all") return true;
-                  return (t.best_platforms || []).map((bp) => bp.toLowerCase()).includes(platformFilter);
-                })
-                .map((topic) => {
-                  const isSelected = selectedIds.has(topic.id);
-                  const emoji = CATEGORY_EMOJIS[topic.category] || "";
-                  const s = topic.engagement_scores;
-
-                  return (
-                    <div
-                      key={topic.id}
-                      onClick={() => toggleTopic(topic.id)}
-                      className={`bg-slate-900/60 border rounded-2xl p-5 backdrop-blur cursor-pointer transition-all hover:scale-[1.01] ${isSelected
-                        ? "border-violet-500/50 shadow-lg shadow-violet-500/10"
-                        : "border-slate-800 hover:border-slate-700"
-                        }`}
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          {emoji && <span className="text-xl">{emoji}</span>}
-                          <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                            {topic.category}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`text-xs font-bold px-2.5 py-1 rounded-full ${s.overall >= 7
-                              ? "bg-emerald-500/15 text-emerald-400"
-                              : s.overall >= 5
-                                ? "bg-amber-500/15 text-amber-400"
-                                : "bg-slate-700 text-slate-400"
-                              }`}
-                          >
-                            {s.overall.toFixed(1)}/10
-                          </span>
-                          <div
-                            className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition ${isSelected ? "bg-violet-600 border-violet-500" : "border-slate-600"
-                              }`}
-                          >
-                            {isSelected && <Check size={14} />}
-                          </div>
-                        </div>
-                      </div>
-
-                      <h3 className="text-base font-bold text-slate-100 mb-1.5 leading-snug">{topic.title}</h3>
-                      <p className="text-xs text-slate-400 mb-3 leading-relaxed">{topic.summary}</p>
-
-                      {/* Teaching points */}
-                      {topic.teaching_points.length > 0 && (
-                        <div className="mb-3">
-                          <p className="text-xs font-semibold text-violet-400 mb-1">What they'll learn:</p>
-                          <ul className="text-xs text-slate-400 space-y-0.5">
-                            {topic.teaching_points.slice(0, 3).map((tp, i) => (
-                              <li key={i} className="flex items-start gap-1.5">
-                                <span className="text-violet-500 mt-0.5">-</span>
-                                {tp}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Platforms */}
-                      <div className="flex gap-1.5 mb-3 flex-wrap">
-                        {(topic.best_platforms || []).map((p) => (
-                          <PlatformBadge key={p} platform={p} />
-                        ))}
-                      </div>
-
-                      {/* Scores */}
-                      <div className="space-y-1.5">
-                        <ScoreBar label="Educational" value={s.educational_value} color="#8b5cf6" />
-                        <ScoreBar label="Saveable" value={s.saveability} color="#10b981" />
-                        <ScoreBar label="Shareable" value={s.shareability} color="#3b82f6" />
-                        <ScoreBar label="Conversation" value={s.conversation} color="#f59e0b" />
-                        <ScoreBar label="Viral" value={s.virality} color="#ef4444" />
-                      </div>
-                    </div>
-                  );
-                })}
-            </div>
-          </div>
-        )}
-
-        {/* â”€â”€ PLANNER TAB â”€â”€ */}
-        {sessionId && tab === "planner" && (
-          <div>
-            <h2 className="text-xl font-bold text-slate-200 mb-6 flex items-center gap-2">
-              <Calendar size={22} className="text-violet-400" /> Weekly Content Plan
-            </h2>
-
-            <div className="grid grid-cols-1 gap-4">
-              {plan.map((day, i) => {
-                const color = PLATFORM_COLORS[day.platform] || "#888";
-                const Icon = PLATFORM_ICONS[day.platform] || Zap;
-
-                return (
-                  <div
-                    key={i}
-                    className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 backdrop-blur hover:border-slate-700 transition"
-                    style={{ borderLeft: `4px solid ${color}` }}
-                  >
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="w-10 h-10 rounded-xl flex items-center justify-center"
-                          style={{ background: `${color}20` }}
-                        >
-                          <Icon size={20} style={{ color }} />
-                        </div>
-                        <div>
-                          <span className="text-sm font-bold text-slate-200 capitalize">{day.day}</span>
-                          <span className="text-xs text-slate-500 ml-2">{day.date}</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-800 text-slate-400 capitalize">
-                          {day.content_format}
-                        </span>
-                        <PlatformBadge platform={day.platform} />
-                      </div>
-                    </div>
-
-                    <h3 className="text-base font-bold text-slate-100 mb-1">{day.topic_title}</h3>
-
-                    {day.hook && (
-                      <div className="mb-2">
-                        <span className="text-xs font-semibold text-amber-400">Hook: </span>
-                        <span className="text-xs text-slate-300 italic">"{day.hook}"</span>
-                      </div>
-                    )}
-
-                    {day.teaching_goal && (
-                      <div className="mb-2">
-                        <span className="text-xs font-semibold text-violet-400">Teaching Goal: </span>
-                        <span className="text-xs text-slate-400">{day.teaching_goal}</span>
-                      </div>
-                    )}
-
-                    {day.angle && (
-                      <div className="mb-2">
-                        <span className="text-xs font-semibold text-emerald-400">Angle: </span>
-                        <span className="text-xs text-slate-400">{day.angle}</span>
-                      </div>
-                    )}
-
-                    {day.reasoning && (
-                      <p className="text-xs text-slate-500 italic mt-2 border-t border-slate-800 pt-2">
-                        {day.reasoning}
-                      </p>
-                    )}
-
-                    {day.writing_prompt && (
-                      <div className="mt-4 border-t border-slate-800/80 pt-3 flex justify-end">
-                        <button
-                          onClick={() => copyWritingPrompt(i, day.writing_prompt || "")}
-                          className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600/20 hover:bg-violet-600/35 text-violet-300 rounded-lg text-xs font-semibold transition border border-violet-500/20"
-                        >
-                          {copiedPromptId === i ? <Check size={12} /> : <Copy size={12} />}
-                          {copiedPromptId === i ? "Copied Prompt!" : "Copy Writing Prompt"}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* â”€â”€ EXPORT TAB â”€â”€ */}
-        {sessionId && tab === "export" && (
-          <div className="max-w-4xl mx-auto">
-            <h2 className="text-xl font-bold text-slate-200 mb-6 flex items-center gap-2">
-              <Download size={22} className="text-violet-400" /> Export Plan
-            </h2>
-
-            <div className="grid grid-cols-1 gap-4">
-              {/* Markdown */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-6 backdrop-blur">
-                <h3 className="text-sm font-bold text-emerald-300 mb-3">Markdown</h3>
-                <pre className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 font-mono max-h-[40vh] overflow-y-auto whitespace-pre-wrap">
-                  {plan
-                    .map(
-                      (d) =>
-                        `## ${d.day.charAt(0).toUpperCase() + d.day.slice(1)} (${d.date})\n**Platform:** ${PLATFORM_LABELS[d.platform] || d.platform}\n**Format:** ${d.content_format}\n**Topic:** ${d.topic_title}\n**Hook:** ${d.hook}\n**Teaching Goal:** ${d.teaching_goal}\n**Angle:** ${d.angle}\n`
-                    )
-                    .join("\n---\n\n")}
-                </pre>
-                <button
-                  onClick={() => {
-                    const md = plan
-                      .map(
-                        (d) =>
-                          `## ${d.day.charAt(0).toUpperCase() + d.day.slice(1)} (${d.date})\n**Platform:** ${PLATFORM_LABELS[d.platform] || d.platform}\n**Format:** ${d.content_format}\n**Topic:** ${d.topic_title}\n**Hook:** ${d.hook}\n**Teaching Goal:** ${d.teaching_goal}\n**Angle:** ${d.angle}`
-                      )
-                      .join("\n\n---\n\n");
-                    navigator.clipboard.writeText(md);
-                  }}
-                  className="mt-3 w-full bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-semibold py-2 px-4 rounded-lg text-xs transition flex items-center justify-center gap-1.5"
-                >
-                  <Copy size={14} /> Copy Markdown
-                </button>
-              </div>
-            </div>
           </div>
         )}
       </div>

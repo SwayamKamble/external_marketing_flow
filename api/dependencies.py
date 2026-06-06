@@ -26,16 +26,29 @@ async def init_system():
     """Initializes all singleton core dependencies."""
     global _db, _logger, _config, _memory, _llm, _prompts
     
+    is_vercel = os.getenv("VERCEL") == "1"
+    if is_vercel:
+        import shutil
+        if os.path.exists("data"):
+            shutil.copytree("data", "/tmp/data", dirs_exist_ok=True)
+        data_dir = "/tmp/data"
+        log_dir = "/tmp/logs"
+        db_path = "/tmp/pipeline.db"
+    else:
+        data_dir = "data"
+        log_dir = "data/logs"
+        db_path = os.getenv("PIPELINE_DB_PATH", "data/pipeline.db")
+
     _logger = PipelineLogger(
-        log_dir="data/logs",
+        log_dir=log_dir,
         log_level=os.getenv("LOG_LEVEL", "DEBUG"),
     )
     
-    _db = DatabaseManager(db_path=os.getenv("PIPELINE_DB_PATH", "data/pipeline.db"))
+    _db = DatabaseManager(db_path=db_path)
     _db.initialize()
     
     _config = ConfigLoader("config")
-    _memory = FileMemory(data_dir="data")
+    _memory = FileMemory(data_dir=data_dir)
     
     # We load brand context early so that LLM gateway can utilize configuration immediately
     # though Gateway itself just uses config map

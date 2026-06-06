@@ -23,7 +23,7 @@ import {
   getCreativeStatus,
   getQuickStatus
 } from "../services/creativeApi";
-import { buildDayPrompt } from "./CreativeManager";
+import { buildDayPrompt, buildNewsSlidePrompt, getSeriesTheme, SERIES_THEMES } from "./CreativeManager";
 import type { SeriesDay, SeriesPlan } from "./CreativeManager";
 
 // Platform Icon Components
@@ -91,8 +91,20 @@ const PLATFORM_COLORS: Record<string, { border: string; bg: string; text: string
   x: { border: "border-slate-200", bg: "bg-slate-50", text: "text-slate-700" },
 };
 
+const getQuickDayDate = (createdAtStr: string, dayNum: number) => {
+  try {
+    const baseDate = new Date(createdAtStr);
+    const targetDate = new Date(baseDate);
+    targetDate.setDate(baseDate.getDate() + (dayNum - 1));
+    return targetDate.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  } catch (e) {
+    return "";
+  }
+};
+
 export default function CreativeCalendar() {
   const [sessions, setSessions] = useState<any[]>([]);
+  const [rawQuickSessions, setRawQuickSessions] = useState<any[]>([]);
   const [loadingList, setLoadingList] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<string>("");
   const [activeSession, setActiveSession] = useState<any>(null);
@@ -111,6 +123,8 @@ export default function CreativeCalendar() {
           listCreativeSessions().catch(() => ({ sessions: [] })),
           listQuickSessions().catch(() => ({ sessions: [] }))
         ]);
+        
+        setRawQuickSessions(quickRes.sessions || []);
 
         const standardApproved = (standardRes.sessions || [])
           .filter((s: any) => s.status === "planned")
@@ -123,12 +137,17 @@ export default function CreativeCalendar() {
 
         const quickApproved = (quickRes.sessions || [])
           .filter((s: any) => s.status === "finalized" || s.status === "plan_review")
-          .map((s: any) => ({
-            id: s.id,
-            title: `Quick Series: ${s.user_prompt.length > 40 ? s.user_prompt.slice(0, 40) + "..." : s.user_prompt}`,
-            type: "quick",
-            date: s.created_at,
-          }));
+          .map((s: any) => {
+            const isNews = s.content_filter === "news";
+            return {
+              id: s.id,
+              title: isNews
+                ? `News Post: ${s.user_prompt.length > 40 ? s.user_prompt.slice(0, 40) + "..." : s.user_prompt}`
+                : `Quick Series: ${s.user_prompt.length > 40 ? s.user_prompt.slice(0, 40) + "..." : s.user_prompt}`,
+              type: isNews ? "news" : "quick",
+              date: s.created_at,
+            };
+          });
 
         const allApproved = [...standardApproved, ...quickApproved].sort(
           (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -216,6 +235,60 @@ export default function CreativeCalendar() {
   const completedCount = Object.values(completedDays).filter(Boolean).length;
   const progressPercent = totalDays > 0 ? Math.round((completedCount / totalDays) * 100) : 0;
 
+  // Derive series theme for styling the calendar page with unique theme deduplication
+  const getUniqueSeriesThemeName = () => {
+    const defaultName = activeSession?.structured_intent?.topic_theme
+      ? getSeriesTheme(null, activeSession.structured_intent.topic_theme).name
+      : getSeriesTheme(selectedSessionId).name;
+
+    if (!rawQuickSessions || rawQuickSessions.length === 0) return defaultName;
+
+    const usedThemeNames = new Set<string>();
+    rawQuickSessions.forEach((s) => {
+      if (s.id === selectedSessionId) return;
+
+      const saved = localStorage.getItem(`creative_theme_${s.id}`);
+      if (saved) {
+        usedThemeNames.add(saved);
+        return;
+      }
+
+      const planTheme = s.series_plan?.intent?.topic_theme;
+      if (planTheme) {
+        usedThemeNames.add(getSeriesTheme(null, planTheme).name);
+      } else if (s.id) {
+        usedThemeNames.add(getSeriesTheme(s.id).name);
+      }
+    });
+
+    if (usedThemeNames.has(defaultName)) {
+      const unused = SERIES_THEMES.find(t => !usedThemeNames.has(t.name));
+      if (unused) return unused.name;
+    }
+
+    return defaultName;
+  };
+
+  const activeThemeName = (selectedSessionId ? localStorage.getItem(`creative_theme_${selectedSessionId}`) : null) || getUniqueSeriesThemeName();
+  const seriesTheme = SERIES_THEMES.find(t => t.name === activeThemeName) || SERIES_THEMES[0];
+
+  // Pre-calculate unique themes for standard weekly plan days to ensure different themes for different topics
+  const weeklyDayThemesMap: Record<string, typeof SERIES_THEMES[0]> = {};
+  if (activeSession && activeSession.weekly_plan) {
+    const assignedThemeNames = new Set<string>();
+    activeSession.weekly_plan.forEach((planItem: any) => {
+      let dayTheme = getSeriesTheme(null, planItem.topic_title);
+      if (assignedThemeNames.has(dayTheme.name)) {
+        const unusedTheme = SERIES_THEMES.find(t => !assignedThemeNames.has(t.name));
+        if (unusedTheme) {
+          dayTheme = unusedTheme;
+        }
+      }
+      assignedThemeNames.add(dayTheme.name);
+      weeklyDayThemesMap[planItem.day.toLowerCase()] = dayTheme;
+    });
+  }
+
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-sans">
       {/* Top Banner */}
@@ -225,7 +298,7 @@ export default function CreativeCalendar() {
             <CalendarCheck size={28} />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Creative Calendar</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-white">HQBoard</h1>
             <p className="text-slate-400 text-sm mt-0.5">Manage and track your approved publishing schedule</p>
           </div>
         </div>
@@ -264,14 +337,14 @@ export default function CreativeCalendar() {
             </div>
             <h2 className="text-xl font-bold text-white mb-2">No Approved Plans Found</h2>
             <p className="text-slate-400 text-sm leading-relaxed mb-6">
-              Once you finish planning and approve a series or weekly strategy in the Creative Manager, the schedule will appear here automatically.
+              Once you finish planning and approve a series or weekly strategy in SocialHQ, the schedule will appear here automatically.
             </p>
             <Link
               to="/creative"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-bold px-6 py-3 rounded-xl shadow-lg transition duration-200"
             >
               <Sparkles size={18} />
-              Open Creative Manager
+              Open SocialHQ
             </Link>
           </div>
         ) : loadingSession || !activeSession ? (
@@ -285,8 +358,12 @@ export default function CreativeCalendar() {
             {/* Session Stats Header */}
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl relative overflow-hidden">
               <div className="flex flex-col gap-1 w-full md:w-2/3">
-                <span className="text-xs font-mono font-bold text-emerald-400 uppercase tracking-widest">
-                  {selectedSessionId.startsWith("qp_") ? "Quick Series Pipeline" : "Standard Weekly Planner"}
+                <span className="text-xs font-mono font-bold uppercase tracking-widest" style={{ color: seriesTheme.pri }}>
+                  {activeSession?.content_filter === "news" 
+                    ? "News Studio Pipeline" 
+                    : selectedSessionId.startsWith("qp_") 
+                      ? "Quick Series Pipeline" 
+                      : "Standard Weekly Planner"}
                 </span>
                 <h2 className="text-xl font-bold text-white tracking-tight mt-1">
                   {selectedSessionId.startsWith("qp_")
@@ -295,13 +372,13 @@ export default function CreativeCalendar() {
                 </h2>
                 <div className="flex flex-wrap gap-2.5 mt-3">
                   <span className="bg-slate-900 border border-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full font-semibold">
-                    Platform: <span className="text-emerald-400 capitalize">{activeSession.structured_intent?.platform || "Multi"}</span>
+                    Platform: <span className="capitalize" style={{ color: seriesTheme.pri }}>{activeSession.structured_intent?.platform || "Multi"}</span>
                   </span>
                   <span className="bg-slate-900 border border-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full font-semibold">
-                    Filter: <span className="text-emerald-400 capitalize">{activeSession.content_filter || "Educational"}</span>
+                    Filter: <span className="capitalize" style={{ color: seriesTheme.pri }}>{activeSession.content_filter || "Educational"}</span>
                   </span>
                   <span className="bg-slate-900 border border-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full font-semibold">
-                    Total: <span className="text-emerald-400">{totalDays} posts</span>
+                    Total: <span style={{ color: seriesTheme.pri }}>{totalDays} {activeSession?.content_filter === "news" ? "post" : "posts"}</span>
                   </span>
                 </div>
               </div>
@@ -310,12 +387,15 @@ export default function CreativeCalendar() {
               <div className="w-full md:w-72 bg-slate-900/60 border border-slate-800/80 rounded-xl p-4.5 flex flex-col gap-2">
                 <div className="flex justify-between items-center text-xs font-bold">
                   <span className="text-slate-400">Publishing Progress</span>
-                  <span className="text-emerald-400">{completedCount} / {totalDays} Done ({progressPercent}%)</span>
+                  <span style={{ color: seriesTheme.pri }}>{completedCount} / {totalDays} Done ({progressPercent}%)</span>
                 </div>
                 <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                   <div
-                    className="bg-gradient-to-r from-emerald-400 to-teal-500 h-full rounded-full transition-all duration-500 ease-out"
-                    style={{ width: `${progressPercent}%` }}
+                    className="h-full rounded-full transition-all duration-500 ease-out"
+                    style={{
+                      background: `linear-gradient(90deg, ${seriesTheme.pri}, ${seriesTheme.sec})`,
+                      width: `${progressPercent}%`
+                    }}
                   />
                 </div>
               </div>
@@ -331,18 +411,30 @@ export default function CreativeCalendar() {
                   const platform = day.platform.toLowerCase() || "instagram";
                   const PlatformIcon = PLATFORM_ICONS[platform] || Smartphone;
                   const colors = PLATFORM_COLORS[platform] || { border: "border-slate-800", bg: "bg-slate-850", text: "text-slate-300" };
-                  const dayPrompt = buildDayPrompt(day, activeSession.series_plan as SeriesPlan, platform, selectedSessionId);
+                  const isNews = activeSession?.content_filter === "news";
+                  const dayPrompt = isNews
+                    ? buildNewsSlidePrompt(day, activeSession.series_plan as SeriesPlan, platform, selectedSessionId, seriesTheme.name)
+                    : buildDayPrompt(day, activeSession.series_plan as SeriesPlan, platform, selectedSessionId, seriesTheme.name);
 
                   return (
                     <div
                       key={day.day_number}
                       className={`group border rounded-2xl transition-all duration-300 overflow-hidden cursor-pointer ${
                         isDone
-                          ? "bg-slate-950/60 border-emerald-500/20 opacity-70"
+                          ? "bg-slate-950/60 opacity-70"
                           : isOpen
-                          ? "bg-slate-950 border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-lg"
-                          : "bg-slate-950/90 border-slate-800 hover:border-slate-700/80 hover:shadow-md"
+                          ? "bg-slate-950 shadow-lg"
+                          : "bg-slate-950/90 hover:shadow-md"
                       }`}
+                      style={{
+                        borderColor: isDone
+                          ? `${seriesTheme.border}22`
+                          : isOpen
+                          ? `${seriesTheme.border}88`
+                          : "#1e293b",
+                        borderLeft: `4px solid ${seriesTheme.border}`,
+                        boxShadow: isOpen ? `0 0 12px ${seriesTheme.border}22` : undefined
+                      }}
                       onClick={() => setExpandedDay(isOpen ? null : day.day_number)}
                     >
                       {/* Header */}
@@ -353,14 +445,33 @@ export default function CreativeCalendar() {
                             onClick={(e) => toggleCompleted(day.day_number, e)}
                             className={`p-1 border rounded-lg transition-all ${
                               isDone
-                                ? "bg-emerald-500 border-emerald-500 text-slate-950"
+                                ? "text-slate-950"
                                 : "border-slate-700 hover:border-slate-500 hover:bg-slate-850 text-transparent"
                             }`}
+                            style={{
+                              backgroundColor: isDone ? seriesTheme.pri : undefined,
+                              borderColor: isDone ? seriesTheme.pri : undefined
+                            }}
                           >
                             <CheckCircle size={16} className={isDone ? "opacity-100" : "opacity-0"} />
                           </button>
 
-                          <span className="text-sm font-mono font-bold text-slate-400">Day {day.day_number}</span>
+                          <div className="flex flex-col">
+                            <span className="text-sm font-mono font-bold text-slate-400">
+                              {isNews ? "News Update" : `Day ${day.day_number}`}
+                            </span>
+                            {isNews ? (
+                              <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                News Date: {day.notes || "Recent"}
+                              </span>
+                            ) : (
+                              activeSession?.created_at && (
+                                <span className="text-[10px] text-slate-500 font-mono mt-0.5">
+                                  {getQuickDayDate(activeSession.created_at, day.day_number)}
+                                </span>
+                              )
+                            )}
+                          </div>
                         </div>
 
                         {/* Platform Badge */}
@@ -395,19 +506,19 @@ export default function CreativeCalendar() {
 
                           {/* Hook & Goal */}
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><BookOpen size={12} className="text-emerald-400" /> Hook / Angle</span>
+                            <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><BookOpen size={12} style={{ color: seriesTheme.pri }} /> Hook / Angle</span>
                             <p className="text-xs text-slate-200 bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl font-medium leading-relaxed">{day.hook}</p>
                           </div>
 
                           <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Target size={12} className="text-emerald-400" /> Teaching Goal</span>
+                            <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Target size={12} style={{ color: seriesTheme.pri }} /> Teaching Goal</span>
                             <p className="text-xs text-slate-200 bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl font-medium leading-relaxed">{day.teaching_goal}</p>
                           </div>
 
                           {/* Key Points */}
                           {day.key_points && day.key_points.length > 0 && (
                             <div className="flex flex-col gap-2">
-                              <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><AlertCircle size={12} className="text-emerald-400" /> Key Teaching Points</span>
+                              <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><AlertCircle size={12} style={{ color: seriesTheme.pri }} /> Key Teaching Points</span>
                               <ul className="text-xs text-slate-300 list-disc pl-4.5 flex flex-col gap-1">
                                 {day.key_points.map((pt: string, idx: number) => (
                                   <li key={idx}>{pt}</li>
@@ -420,10 +531,11 @@ export default function CreativeCalendar() {
                           {day.caption && (
                             <div className="flex flex-col gap-1.5">
                               <div className="flex justify-between items-center">
-                                <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><FileText size={12} className="text-emerald-400" /> Post Caption</span>
+                                <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><FileText size={12} style={{ color: seriesTheme.pri }} /> Post Caption</span>
                                 <button
                                   onClick={() => handleCopyText(day.caption || "", day.day_number, "caption")}
-                                  className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold"
+                                  className="text-[10px] flex items-center gap-1 font-bold hover:opacity-80"
+                                  style={{ color: seriesTheme.acc }}
                                 >
                                   {copiedDay === day.day_number && copiedType === "caption" ? (
                                     <>
@@ -465,7 +577,8 @@ export default function CreativeCalendar() {
                                 <span className="text-[10px] font-bold uppercase text-slate-400">Video Script</span>
                                 <button
                                   onClick={() => handleCopyText(day.script || "", day.day_number, "script")}
-                                  className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold"
+                                  className="text-[10px] flex items-center gap-1 font-bold hover:opacity-80"
+                                  style={{ color: seriesTheme.acc }}
                                 >
                                   {copiedDay === day.day_number && copiedType === "script" ? (
                                     <>
@@ -488,11 +601,12 @@ export default function CreativeCalendar() {
                           <div className="flex flex-col gap-1.5">
                             <div className="flex justify-between items-center">
                               <span className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                                <Sparkles size={12} className="text-emerald-400" /> Production Prompt
+                                <Sparkles size={12} style={{ color: seriesTheme.pri }} /> Production Prompt
                               </span>
                               <button
                                 onClick={() => handleCopyText(dayPrompt, day.day_number, "prompt")}
-                                className="text-[10px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold"
+                                className="text-[10px] flex items-center gap-1 font-bold hover:opacity-80"
+                                style={{ color: seriesTheme.acc }}
                               >
                                 {copiedDay === day.day_number && copiedType === "prompt" ? (
                                   <>
@@ -552,21 +666,77 @@ export default function CreativeCalendar() {
                   const PlatformIcon = PLATFORM_ICONS[platform] || Smartphone;
                   const colors = PLATFORM_COLORS[platform] || { border: "border-slate-850", bg: "bg-slate-900", text: "text-slate-300" };
 
+                  // Retrieve unique theme for this topic/day
+                  const dayTheme = weeklyDayThemesMap[dayName] || seriesTheme;
+
+                  // Find topic details for constructing slides outline in production prompt
+                  const topicIdea = (activeSession.topics || []).find(
+                    (t: any) => t.id === planItem.topic_id
+                  );
+
+                  // Construct temporary SeriesDay and SeriesPlan to leverage buildDayPrompt
+                  const tempDay: SeriesDay = {
+                    day_number: 1,
+                    title: planItem.topic_title,
+                    platform: planItem.platform,
+                    content_type: planItem.content_format,
+                    hook: planItem.hook,
+                    angle: planItem.angle,
+                    teaching_goal: planItem.teaching_goal,
+                    key_points: topicIdea?.teaching_points || [],
+                    talking_points: [],
+                    slide_outline: [],
+                    script: "",
+                    caption: "",
+                    cta: "Save for Later",
+                    notes: planItem.reasoning || "",
+                  };
+
+                  const tempPlan: SeriesPlan = {
+                    intent: {
+                      series_length: 1,
+                      content_filter: activeSession?.niche || "educational",
+                      platform: planItem.platform,
+                      topic_theme: planItem.topic_title,
+                      sub_topics: [],
+                      target_audience: "AI enthusiasts, developers, tech professionals",
+                      platform_preferences: [planItem.platform],
+                      content_styles: [],
+                      educational_goals: topicIdea?.teaching_points || [],
+                      difficulty_level: "intermediate",
+                      raw_prompt: "",
+                    },
+                    days: [tempDay],
+                    status: "finalized",
+                    chat_history: [],
+                  };
+
+                  const dayPrompt = buildDayPrompt(tempDay, tempPlan, platform, null, dayTheme.name);
+
                   return (
                     <div key={dayName} className="flex flex-col gap-2">
                       <h4 className="text-center font-bold text-slate-400 uppercase text-xs tracking-wider border-b border-slate-800 pb-2 flex items-center justify-center gap-1">
-                        {isDone && <CheckCircle size={12} className="text-emerald-400" />}
+                        {isDone && <CheckCircle size={12} style={{ color: dayTheme.pri }} />}
                         <span>{dayName}</span>
                       </h4>
 
                       <div
                         className={`group border rounded-2xl transition-all duration-300 overflow-hidden cursor-pointer flex flex-col ${
                           isDone
-                            ? "bg-slate-950/60 border-emerald-500/20 opacity-70"
+                            ? "bg-slate-950/60 opacity-70"
                             : isOpen
-                            ? "bg-slate-950 border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-lg"
-                            : "bg-slate-950/90 border-slate-800 hover:border-slate-700/80 hover:shadow-md"
+                            ? "bg-slate-950 shadow-lg"
+                            : "bg-slate-950/90 hover:shadow-md"
                         }`}
+                        style={{
+                          borderColor: isDone
+                            ? `${dayTheme.border}22`
+                            : isOpen
+                            ? `${dayTheme.border}88`
+                            : "#1e293b",
+                          borderLeft: `4px solid ${dayTheme.border}`,
+                          boxShadow: isOpen ? `0 0 12px ${dayTheme.border}22` : undefined
+                        }}
                         onClick={() => setExpandedDay(isOpen ? null : planItem.day)}
                       >
                         {/* Checkbox + Icon Header */}
@@ -575,9 +745,13 @@ export default function CreativeCalendar() {
                             onClick={(e) => toggleCompleted(planItem.day, e)}
                             className={`p-1 border rounded-lg transition-all ${
                               isDone
-                                ? "bg-emerald-500 border-emerald-500 text-slate-950"
+                                ? "text-slate-950"
                                 : "border-slate-700 hover:border-slate-500 hover:bg-slate-850 text-transparent"
                             }`}
+                            style={{
+                              backgroundColor: isDone ? dayTheme.pri : undefined,
+                              borderColor: isDone ? dayTheme.pri : undefined
+                            }}
                           >
                             <CheckCircle size={14} className={isDone ? "opacity-100" : "opacity-0"} />
                           </button>
@@ -612,22 +786,23 @@ export default function CreativeCalendar() {
                             <div className="border-t border-slate-900 my-1" />
 
                             <div className="flex flex-col gap-0.5">
-                              <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1"><BookOpen size={10} className="text-emerald-400" /> Hook / Angle</span>
+                              <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1"><BookOpen size={10} style={{ color: dayTheme.pri }} /> Hook / Angle</span>
                               <p className="text-[11px] text-slate-200 bg-slate-900/85 border border-slate-800/80 p-2 rounded-xl leading-normal">{planItem.hook}</p>
                             </div>
 
                             <div className="flex flex-col gap-0.5">
-                              <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1"><Target size={10} className="text-emerald-400" /> Goal</span>
+                              <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1"><Target size={10} style={{ color: dayTheme.pri }} /> Goal</span>
                               <p className="text-[11px] text-slate-200 bg-slate-900/85 border border-slate-800/80 p-2 rounded-xl leading-normal">{planItem.teaching_goal}</p>
                             </div>
 
                             {planItem.writing_prompt && (
                               <div className="flex flex-col gap-1">
                                 <div className="flex justify-between items-center">
-                                  <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1"><FileText size={10} className="text-emerald-400" /> Writing Prompt</span>
+                                  <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1"><FileText size={10} style={{ color: dayTheme.pri }} /> Writing Prompt</span>
                                   <button
                                     onClick={() => handleCopyText(planItem.writing_prompt, planItem.day, "prompt")}
-                                    className="text-[9px] text-emerald-400 hover:text-emerald-300 flex items-center gap-1 font-bold"
+                                    className="text-[9px] flex items-center gap-1 font-bold hover:opacity-80"
+                                    style={{ color: dayTheme.acc }}
                                   >
                                     {copiedDay === planItem.day && copiedType === "prompt" ? (
                                       <>
@@ -645,6 +820,33 @@ export default function CreativeCalendar() {
                                 </pre>
                               </div>
                             )}
+
+                            {/* Production Prompt Area */}
+                            <div className="flex flex-col gap-1.5">
+                              <div className="flex justify-between items-center">
+                                <span className="text-[9px] font-bold uppercase text-slate-400 flex items-center gap-1">
+                                  <Sparkles size={10} style={{ color: dayTheme.pri }} /> Production Prompt
+                                </span>
+                                <button
+                                  onClick={() => handleCopyText(dayPrompt, planItem.day, "prod_prompt")}
+                                  className="text-[9px] flex items-center gap-1 font-bold hover:opacity-80"
+                                  style={{ color: dayTheme.acc }}
+                                >
+                                  {copiedDay === planItem.day && copiedType === "prod_prompt" ? (
+                                    <>
+                                      <Check size={8} /> Copied!
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Copy size={8} /> Copy Prompt
+                                    </>
+                                  )}
+                                </button>
+                              </div>
+                              <pre className="text-[10px] font-mono text-slate-300 bg-slate-900 border border-slate-800/80 p-2 rounded-xl max-h-36 overflow-y-auto whitespace-pre-wrap leading-relaxed">
+                                {dayPrompt}
+                              </pre>
+                            </div>
                           </div>
                         )}
 

@@ -1,0 +1,14 @@
+.venv
+.git
+.pytest_cache
+.uv-cache
+node_modules
+frontend
+data/weeks
+data/logs
+data/brand
+tests
+carousel_renderer
+docs
+*.db
+*.sqlite

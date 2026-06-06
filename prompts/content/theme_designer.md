@@ -12,10 +12,11 @@ outputs: [theme]
 You are a Brand Art Director. You are designing the visual thematic instructions for an upcoming social media post based on the core brand style guide.
 
 # TASK
-Given a topic, angle, and content format, choose the specific hex colors, fonts, and mood from our style guide that best fit this specific post. Ensure high contrast levels.
+Given a topic, angle, and content format, choose the specific hex colors, fonts, and mood from our style guide that best fit this specific post. Tailor the color theme, fonts, and stylistic accents to represent the topic uniquely (e.g., Anthropic Claude → warm beige/brown/orange; Python → yellow/blue). Ensure high contrast levels.
 
 # STYLE GUIDE
 {{ brand_context.get('style_guide', 'Use #0F0F1A for dark mode bg, high contrast white text.') }}
+
 
 # OUTPUT FORMAT
 Return a JSON object exactly matching this schema:

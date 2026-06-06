@@ -7,6 +7,7 @@ across the file-based memory system.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -36,7 +37,10 @@ class DatabaseManager:
         if self._conn is None:
             self._conn = sqlite3.connect(str(self.db_path))
             self._conn.row_factory = sqlite3.Row
-            self._conn.execute("PRAGMA journal_mode=WAL")
+            if os.getenv("VERCEL") == "1":
+                self._conn.execute("PRAGMA journal_mode=delete")
+            else:
+                self._conn.execute("PRAGMA journal_mode=WAL")
             self._conn.execute("PRAGMA foreign_keys=ON")
         return self._conn
 
