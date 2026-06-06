@@ -9,7 +9,13 @@ const API_PORT = import.meta.env.VITE_API_PORT || "8000";
 const isLocalApi = API_HOST === "127.0.0.1" || API_HOST === "localhost" || API_HOST === "::1";
 const API_PROTOCOL = import.meta.env.VITE_API_PROTOCOL || (isLocalApi ? "http" : window.location.protocol.replace(":", "") || "http");
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || `${API_PROTOCOL}://${API_HOST}:${API_PORT}`;
+// If hosted on Vercel (production or preview), default to our production backend URL if not set
+const DEFAULT_PRODUCTION_BACKEND = "https://external-marketing-flow.vercel.app";
+const isHostedOnVercel = typeof window !== "undefined" && window.location.hostname.includes("vercel.app");
+
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
+  (isHostedOnVercel ? DEFAULT_PRODUCTION_BACKEND : `${API_PROTOCOL}://${API_HOST}:${API_PORT}`);
+
 
 // Derive WS_BASE_URL from API_BASE_URL if no custom WS URL is provided
 const defaultWsBaseUrl = API_BASE_URL.startsWith("https://")
