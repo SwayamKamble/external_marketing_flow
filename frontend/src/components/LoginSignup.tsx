@@ -57,10 +57,19 @@ export default function LoginSignup({ onLoginSuccess }: LoginSignupProps) {
       }
     } catch (err: any) {
       console.error("Authentication failed:", err);
-      const detail = err.response?.data?.detail;
-      setError(
-        detail || "Authentication failed. Check your credentials or network."
-      );
+      if (err.response) {
+        // Server responded with an error status
+        const detail = err.response.data?.detail;
+        if (err.response.status === 500) {
+          setError("Server error. Please try again in a moment.");
+        } else {
+          setError(detail || "Invalid username or password.");
+        }
+      } else if (err.code === "ERR_NETWORK" || err.code === "ECONNABORTED") {
+        setError("Cannot reach the server. Check your network connection.");
+      } else {
+        setError("Authentication failed. Please try again.");
+      }
     } finally {
       setLoading(false);
     }

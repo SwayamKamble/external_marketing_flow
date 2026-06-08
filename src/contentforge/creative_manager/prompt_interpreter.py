@@ -168,6 +168,12 @@ Today's date is **{current_date}**.
 
 ## CRITICAL SEARCH INSTRUCTION:
 **YOU MUST SEARCH THE WEB** for the most recent trending news, breakthrough releases, open-source repository launches, and active tech discussions in the AI and AI Tech industry that occurred in the last 7 days leading up to **{current_date}**. Do NOT rely on pre-trained historical knowledge. You must fetch fresh, real-time news and breakthroughs.
+
+### FRESHNESS & RECENCY PRIORITY:
+- **Prioritize the NEWEST and MOST RECENT topics first** — topics from the last 24-72 hours should rank highest.
+- The user wants to create content on **the latest trending topics** so they stay relevant in the market.
+- Search platforms like HackerNews, GitHub Trending, ProductHunt, X/Twitter tech community, Reddit r/MachineLearning, r/LocalLLaMA, ArXiv recent papers, and AI newsletters to find what is actively being discussed RIGHT NOW.
+- Topics that are currently peaking in discussion volume should be prioritized over topics that peaked days ago.
 {news_guideline}
 Your task: Discover **8-12 highly engaging trending topics** that would make excellent content for a **{plat['label']} post**. All topics must be fresh, new, and based on breakthroughs, releases, or trends people *love* reading and discussing right now. Do NOT return outdated historical news from previous months/years (like September, etc.).
 
@@ -189,6 +195,7 @@ Content style: {plat['style']}.
 ## What Makes a Great Topic?
 
 - It has strong audience demand RIGHT NOW
+- It is currently trending or peaking in discussions among AI/tech professionals
 - It can sustain 1-3 detailed slides or a single breakdown post
 - It works exceptionally well on {plat['label']} specifically
 - The audience (developers, AI enthusiasts, tech professionals, students) will save, share, and discuss it
@@ -213,7 +220,8 @@ Return a JSON array with 8-12 topics. Each topic:
     ],
     "target_audience": "Who specifically benefits most from this content",
     "category": "{content_filter}",
-    "news_date": "MANDATORY: The exact date when the original news, release, or breakthrough occurred (e.g., June 5, 2026 or 2026-06-05). Do not leave empty."
+    "news_date": "MANDATORY: The exact date when the original news, release, or breakthrough occurred (e.g., June 5, 2026 or 2026-06-05). Do not leave empty.",
+    "trending_timeline": "MANDATORY: A brief timeline of when this topic started trending and its peak periods. Example: 'First appeared on June 2, 2026 on GitHub. Peaked on X/Twitter and HackerNews on June 4-5, 2026. Currently still trending with active discussion across Reddit and AI newsletters.' Include which platforms/communities it trended on (X/Twitter, HackerNews, Reddit, ProductHunt, GitHub, ArXiv, LinkedIn, AI newsletters, etc.)."
   }}
 ]
 ```
@@ -221,6 +229,8 @@ Return a JSON array with 8-12 topics. Each topic:
 ## CRITICAL RULES:
 - Return ONLY the JSON array, no other text
 - **MANDATORY NEWS DATE**: Every topic MUST include the actual historical date when the news or breakthrough originally occurred in the `news_date` field (e.g., "June 5, 2026" or "2026-06-05"). Do not leave this field empty, do not use relative terms like "today" or "recent", and do not use future post calendar scheduling dates.
+- **MANDATORY TRENDING TIMELINE**: Every topic MUST include a `trending_timeline` field describing when the topic started trending, which platforms/communities it peaked on (X/Twitter, HackerNews, Reddit, ProductHunt, GitHub, ArXiv, LinkedIn, etc.), and whether it is still actively being discussed. This helps the user pick the freshest, most relevant topics.
+- **SORT BY RECENCY**: Return topics sorted by how recently they started trending — the newest/freshest trends should appear first.
 - relevance_score is 0-10 based on current trending relevance
 - Topics should be diverse — don't cluster around one narrow area
 - Every topic must be genuinely useful to the target audience
@@ -305,6 +315,7 @@ def _parse_discovered_topics(raw_text: str) -> list[DiscoveredTopic] | None:
             suggested_angles=[str(a).strip() for a in item.get("suggested_angles", item.get("angles", []))],
             target_audience=str(item.get("target_audience", "")).strip(),
             news_date=(lambda d: datetime.now().strftime("%B %d, %Y") if not d or d.lower() in ("recent", "today", "now", "current", "latest", "unknown", "n/a", "recent breakthrough") else d)(str(item.get("news_date", "")).strip()),
+            trending_timeline=str(item.get("trending_timeline", "")).strip(),
         ))
 
     return topics if topics else None
@@ -344,6 +355,7 @@ Make sure all content is highly relevant to the actual news event or breakthroug
 - **Summary**: {topic.summary}
 - **Why It's Relevant**: {topic.why_trending}
 - **News Release Date**: {topic.news_date or current_date}
+- **Trending Timeline**: {topic.trending_timeline or 'Currently trending in the AI/tech community'}
 - **Target Audience**: {topic.target_audience or "AI enthusiasts, developers, tech professionals, students"}
 
 ## Target Platform: {plat['label']} ONLY
@@ -445,6 +457,8 @@ Make sure all content is highly relevant to today's real-world state of this top
 - **Title**: {topic.title}
 - **Summary**: {topic.summary}
 - **Why It's Relevant**: {topic.why_trending}
+- **Origin Date**: {topic.news_date or current_date}
+- **Trending Timeline**: {topic.trending_timeline or 'Currently trending in the AI/tech community'}
 - **Content Filter**: {filt['label']}
 - **Target Audience**: {topic.target_audience or "AI enthusiasts, developers, tech professionals, students"}
 

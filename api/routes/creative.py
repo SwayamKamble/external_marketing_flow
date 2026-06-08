@@ -19,17 +19,15 @@ from api.routes.auth import get_current_user
 router = APIRouter(prefix="/creative", tags=["creative-manager"])
 
 # ── Singleton instances ──
-_db: CreativeManagerDB | None = None
 _engine = CreativeManagerEngine()
 
 
 def _get_db() -> CreativeManagerDB:
-    global _db
-    if _db is None:
-        db_path = "/tmp/creative_manager.db" if os.getenv("VERCEL") == "1" else "data/creative_manager.db"
-        _db = CreativeManagerDB(db_path=db_path)
-        _db.initialize()
-    return _db
+    """Create a fresh DB instance per request to avoid cross-thread SQLite errors on Vercel."""
+    db_path = "/tmp/creative_manager.db" if os.getenv("VERCEL") == "1" else "data/creative_manager.db"
+    db = CreativeManagerDB(db_path=db_path)
+    db.initialize()
+    return db
 
 
 # ── Request/Response schemas ──

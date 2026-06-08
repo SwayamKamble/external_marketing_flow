@@ -17,16 +17,13 @@ from contentforge.creative_manager.db import CreativeManagerDB
 router = APIRouter(prefix="/creative/auth", tags=["auth"])
 security = HTTPBearer(auto_error=False)
 
-_db: CreativeManagerDB | None = None
-
 
 def _get_db() -> CreativeManagerDB:
-    global _db
-    if _db is None:
-        db_path = "/tmp/creative_manager.db" if os.getenv("VERCEL") == "1" else "data/creative_manager.db"
-        _db = CreativeManagerDB(db_path=db_path)
-        _db.initialize()
-    return _db
+    """Create a fresh DB instance per request to avoid cross-thread SQLite errors on Vercel."""
+    db_path = "/tmp/creative_manager.db" if os.getenv("VERCEL") == "1" else "data/creative_manager.db"
+    db = CreativeManagerDB(db_path=db_path)
+    db.initialize()
+    return db
 
 
 # ── Password Hashing Helpers ──

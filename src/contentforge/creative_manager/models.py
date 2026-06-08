@@ -41,6 +41,7 @@ class TopicIdea(BaseModel):
     category: str = ""          # "AI", "programming", "startup", etc.
     source: str = ""
     news_date: str = ""         # Date of the news/breakthrough
+    trending_timeline: str = "" # When the topic started trending and its peak periods
     educational_angle: str = "" # What the viewer will LEARN
     why_it_works: str = ""      # Why this topic would get engagement
     teaching_points: list[str] = Field(default_factory=list)  # Key things to teach
@@ -109,6 +110,7 @@ class DiscoveredTopic(BaseModel):
     target_audience: str = ""
     category: str = ""  # mirrors content_filter
     news_date: str = ""  # Date of the news/breakthrough
+    trending_timeline: str = ""  # When the topic started trending and its peak periods
 
 
 class SeriesDay(BaseModel):

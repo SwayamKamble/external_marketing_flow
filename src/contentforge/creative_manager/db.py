@@ -43,33 +43,50 @@ class CreativeManagerDB:
                     port = url.port or 5432
                     
                     # Force DNS resolution to IPv4 to prevent Vercel "Cannot assign requested address" IPv6 connection issues
+                    resolved_hostname = hostname
                     try:
                         addr_info = socket.getaddrinfo(hostname, port, socket.AF_INET, socket.SOCK_STREAM)
                         if addr_info:
-                            hostname = addr_info[0][4][0]
-                    except Exception:
-                        pass
+                            resolved_hostname = addr_info[0][4][0]
+                    except Exception as dns_err:
+                        print(f"DATABASE DNS WARNING: DNS resolution for {hostname} failed: {dns_err}")
                     
                     ssl_context = ssl.create_default_context()
                     ssl_context.check_hostname = False
                     ssl_context.verify_mode = ssl.CERT_NONE
                     
-                    self._conn = pg8000.connect(
-                        user=username,
-                        password=password,
-                        host=hostname,
-                        port=port,
-                        database=database,
-                        ssl_context=ssl_context,
-                        timeout=5
-                    )
+                    try:
+                        self._conn = pg8000.connect(
+                            user=username,
+                            password=password,
+                            host=resolved_hostname,
+                            port=port,
+                            database=database,
+                            ssl_context=ssl_context,
+                            timeout=3
+                        )
+                    except Exception as conn_err:
+                        # If we tried the resolved IP and it failed, retry with original hostname
+                        if resolved_hostname != hostname:
+                            print(f"DATABASE CONNECTION WARNING: Failed to connect to resolved IP {resolved_hostname}: {conn_err}. Retrying with original hostname {hostname}...")
+                            self._conn = pg8000.connect(
+                                user=username,
+                                password=password,
+                                host=hostname,
+                                port=port,
+                                database=database,
+                                ssl_context=ssl_context,
+                                timeout=3
+                            )
+                        else:
+                            raise conn_err
                 except Exception as e:
                     print(f"DATABASE CONNECTION WARNING: Failed to connect to PostgreSQL database: {e}. Falling back to SQLite.")
                     self.is_postgres = False
                     self._conn = None
             
             if not self.is_postgres or self._conn is None:
-                self._conn = sqlite3.connect(str(self.db_path))
+                self._conn = sqlite3.connect(str(self.db_path), check_same_thread=False)
                 self._conn.row_factory = sqlite3.Row
                 if os.getenv("VERCEL") == "1":
                     self._conn.execute("PRAGMA journal_mode=delete")

@@ -98,13 +98,17 @@ Only include news published within the last 14 days.
 
 Prioritize:
 
-* Last 24 hours
+* Last 24 hours (HIGHEST priority — these are the freshest, most market-relevant topics)
 * Last 3 days
 * Last 7 days
 
 If no high-quality stories exist in the last 24 hours, expand to 14 days.
 
 Older stories must be rejected.
+
+**SORT BY RECENCY**: Return stories sorted by how recently they occurred — the newest stories should appear first. The user needs the latest trends to stay relevant in the market.
+
+**TRENDING PLATFORMS**: Search across HackerNews, GitHub Trending, ProductHunt, X/Twitter tech community, Reddit r/MachineLearning, r/LocalLLaMA, ArXiv, and AI newsletters to find what is actively being discussed RIGHT NOW.
 
 ---
 
@@ -188,10 +192,11 @@ For every story provide:
 
 * exact headline
 * company/organization
-* announcement date
+* announcement date (the exact date when the news/release/breakthrough originally occurred)
 * publication date
 * source name
 * source URL
+* trending_timeline: When this story started trending and on which platforms/communities (e.g., "First broke on X/Twitter on June 3, 2026. Peaked on HackerNews and Reddit on June 4-5. Currently still being actively discussed across LinkedIn and AI newsletters.")
 
 ### Story Summary
 
@@ -329,7 +334,8 @@ Return:
 "instagram": "",
 "linkedin": "",
 "x": ""
-}
+},
+"trending_timeline": "When this story started trending and on which platforms (e.g., 'First broke on X/Twitter on June 3. Peaked on HackerNews June 4-5. Still trending on Reddit and AI newsletters.')"
 }
 ]
 
@@ -345,11 +351,172 @@ Before returning any story, verify:
 * It is relevant to AI and technology.
 * It is likely to interest the AI community.
 * It is worthy of being turned into a social media post.
+* It includes the exact origin/announcement date.
+* It includes a trending timeline showing when and where it peaked.
 
-Return only the highest-quality AI and technology news stories available right now.
+Return only the highest-quality AI and technology news stories available right now, sorted by recency (newest first).
 
 """
 
+
+
+_RESEARCH_PROMPT = """You are a senior content strategist for an educational AI & Tech brand on social media (@tech_by_pravesh).
+
+Your goal: Find **{topic_count} educational content topics** about AI, technology, software, productivity, automation, engineering, and emerging tech that have strong viral potential while delivering genuine educational value.
+
+## Core Objective
+Generate topics that help audiences:
+- Learn something new
+- Understand complex concepts simply
+- Gain practical skills
+- Discover useful frameworks
+- Save time at work
+- Improve career opportunities
+- Understand emerging technology trends
+
+Every topic must provide actionable educational value while also maximizing engagement.
+
+---
+
+## Content Strategy Rules
+The content should NOT be news reporting.
+Avoid:
+- Company funding announcements
+- Product launches without educational lessons
+- Generic AI news summaries
+- Celebrity AI stories
+- Clickbait without educational value
+
+Instead, focus on:
+- Concepts
+- Frameworks
+- Tutorials
+- Workflows
+- Mental models
+- Case studies
+- Tool breakdowns
+- Industry shifts explained
+- Career development
+- Productivity systems
+- Engineering lessons
+- AI implementation techniques
+
+---
+
+## Platform Audience and Content Match Selection
+For each topic, determine which platform(s) it is BEST suited for based on the target audience:
+- **instagram**: Best for visual step-by-step guides, checklists, code snippet cards, and quick visual tutorials (carousel, reel, single-image).
+- **linkedin**: Best for professional insights, software architecture, career advice, and case studies (long-form, document carousel).
+- **x**: Best for opinions, hot takes, engineering trends, and quick tips (thread, short post).
+
+Include only the recommended platforms for the topic in the `best_platforms` array (must contain one or more of: "instagram", "linkedin", "x").
+
+---
+
+## Topic Quality Requirements
+Every topic must:
+- Be educational
+- Be highly relevant in today's AI & Tech landscape
+- Have strong audience demand
+- Be searchable and discussable
+- Work across multiple platforms
+- Be understandable by non-experts
+- Be useful for students, professionals, creators, founders, engineers, or AI enthusiasts
+
+---
+
+## Virality & Scoring Evaluation
+For each topic assign scores from 1-10:
+- viral_potential
+- educational_value
+- shareability
+- saveability
+- conversation_potential
+- practicality
+
+Only recommend topics where:
+- educational_value >= 8
+- practicality >= 8
+- viral_potential >= 7
+
+---
+
+## Required Output Format
+Return a JSON array with this exact structure:
+
+```json
+[
+  {{
+    "title": "Clear specific topic",
+    "summary": "2-3 sentence educational overview",
+    "bucket": "shareable | saveable | conversation-starter | career-growth | ai-workflow | trend-education",
+    "category": "how-to | concept | framework | tool | myth-buster | case-study | cheat-sheet | behind-the-scenes | trend-analysis | career",
+    "educational_angle": "What the audience learns",
+    "teaching_points": [
+      "Specific lesson 1",
+      "Specific lesson 2",
+      "Specific lesson 3"
+    ],
+    "best_platforms": ["instagram", "linkedin"],
+    "platform_strategy": {{
+      "instagram": {{
+        "why_it_works": "Why IG users will save/share it",
+        "best_format": "carousel | infographic | reel",
+        "primary_goal": "saves | shares | reach"
+      }},
+      "linkedin": {{
+        "why_it_works": "Why professionals will engage",
+        "best_format": "carousel | document | article",
+        "primary_goal": "shares | comments | discussions"
+      }},
+      "x": {{
+        "why_it_works": "Why it sparks conversation",
+        "best_format": "thread | visual_thread",
+        "primary_goal": "bookmarks | retweets | discussions"
+      }}
+    }},
+    "scores": {{
+      "viral_potential": 9,
+      "educational_value": 10,
+      "shareability": 9,
+      "saveability": 10,
+      "conversation_potential": 8,
+      "practicality": 10
+    }},
+    "why_it_can_go_viral": "Detailed explanation of why this topic has strong viral potential while remaining educational",
+    "source": "Trend, framework, industry discussion, AI workflow, technical concept, developer practice, productivity method, etc.",
+    "suggested_hooks": {{
+      "instagram": "Strong carousel cover hook",
+      "linkedin": "Professional opening hook",
+      "x": "Thread opening hook"
+    }},
+    "suggested_formats": {{
+      "instagram": "carousel | infographic | reel",
+      "linkedin": "carousel | document | article",
+      "x": "thread | visual_thread"
+    }},
+    "suggested_angles": {{
+      "instagram": "Visual-first educational angle",
+      "linkedin": "Professional/business angle",
+      "x": "Discussion-provoking angle"
+    }}
+  }}
+]
+```
+
+## CRITICAL RULES
+- Every topic MUST be **educational** — it teaches, explains, or demonstrates something
+- No pure news items (no "Company X just raised $Y" unless there's a lesson)
+- No generic motivation ("why you should learn to code")
+- Each topic must have at least 3 specific teaching_points
+- Hooks must be attention-grabbing and platform-appropriate
+- The JSON must be valid and parseable
+- Return ONLY the JSON array, no other text
+
+## Niche: {niche}
+
+Find {topic_count} educational topics now.
+"""
 
 
 # ─────────────────────────────────────────────────────────
@@ -495,10 +662,11 @@ class CreativeManagerEngine:
             if not why_it_works:
                 why_it_works = str(item.get("why_it_can_go_viral", "")).strip()
 
-            source = str(item.get("source", "")).strip()
-            news_date = str(item.get("news_date", "")).strip()
+            source = str(item.get("source", item.get("source_name", ""))).strip()
+            news_date = str(item.get("news_date", item.get("announcement_date", ""))).strip()
             if not news_date or news_date.lower() in ("recent", "today", "now", "current", "latest", "unknown", "n/a", "recent breakthrough"):
                 news_date = datetime.now().strftime("%B %d, %Y")
+            trending_timeline = str(item.get("trending_timeline", "")).strip()
             best_platforms = item.get("best_platforms", ["instagram", "linkedin", "x"])
             if not isinstance(best_platforms, list):
                 best_platforms = ["instagram", "linkedin", "x"]
@@ -615,6 +783,7 @@ class CreativeManagerEngine:
                 category=category,
                 source=source,
                 news_date=news_date,
+                trending_timeline=trending_timeline,
                 educational_angle=educational_angle,
                 why_it_works=why_it_works,
                 teaching_points=teaching_points,

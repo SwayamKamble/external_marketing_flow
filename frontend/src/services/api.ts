@@ -10,19 +10,22 @@ const isLocalApi = API_HOST === "127.0.0.1" || API_HOST === "localhost" || API_H
 const API_PROTOCOL = import.meta.env.VITE_API_PROTOCOL || (isLocalApi ? "http" : window.location.protocol.replace(":", "") || "http");
 
 // If hosted on Vercel (production or preview), default to our production backend URL if not set
-const DEFAULT_PRODUCTION_BACKEND = "https://external-marketing-flow.vercel.app";
+const DEFAULT_PRODUCTION_BACKEND = "https://productiontest-nu.vercel.app";
 const isHostedOnVercel = typeof window !== "undefined" && window.location.hostname.includes("vercel.app");
+const isNgrok = typeof window !== "undefined" && window.location.hostname.includes("ngrok");
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 
-  (isHostedOnVercel ? DEFAULT_PRODUCTION_BACKEND : `${API_PROTOCOL}://${API_HOST}:${API_PORT}`);
+const API_BASE_URL = isNgrok ? "" : (import.meta.env.VITE_API_BASE_URL || 
+  (isHostedOnVercel ? DEFAULT_PRODUCTION_BACKEND : `${API_PROTOCOL}://${API_HOST}:${API_PORT}`));
 
 
 // Derive WS_BASE_URL from API_BASE_URL if no custom WS URL is provided
-const defaultWsBaseUrl = API_BASE_URL.startsWith("https://")
+const defaultWsBaseUrl = (API_BASE_URL && API_BASE_URL.startsWith("https://"))
   ? API_BASE_URL.replace("https://", "wss://")
-  : API_BASE_URL.replace("http://", "ws://");
+  : (API_BASE_URL ? API_BASE_URL.replace("http://", "ws://") : "");
 
-const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL || defaultWsBaseUrl;
+const WS_BASE_URL = isNgrok 
+  ? window.location.origin.replace(/^http/, "ws") 
+  : (import.meta.env.VITE_WS_BASE_URL || defaultWsBaseUrl);
 const ALT_API_PORT = API_PORT === "8000" ? "8010" : "8000";
 const ALT_API_BASE_URL = `${API_PROTOCOL}://${API_HOST}:${ALT_API_PORT}`;
 
@@ -47,14 +50,19 @@ api.interceptors.request.use(
 );
 
 // Catch 401 Unauthorized errors to automatically logout and refresh
+// BUT skip auto-logout for auth endpoints (login/signup return 401 for invalid credentials)
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      localStorage.removeItem("auth_token");
-      localStorage.removeItem("auth_username");
-      localStorage.removeItem("auth_user_id");
-      window.location.reload();
+      const requestUrl = error.config?.url || "";
+      const isAuthEndpoint = requestUrl.includes("/auth/login") || requestUrl.includes("/auth/signup");
+      if (!isAuthEndpoint) {
+        localStorage.removeItem("auth_token");
+        localStorage.removeItem("auth_username");
+        localStorage.removeItem("auth_user_id");
+        window.location.reload();
+      }
     }
     return Promise.reject(error);
   }
